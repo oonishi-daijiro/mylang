@@ -1,0 +1,37 @@
+TranslationUnitDecl 0x1afbc18ca58 <<invalid sloc>> <invalid sloc>
+|-TypedefDecl 0x1afbc18d2e8 <<invalid sloc>> <invalid sloc> implicit __int128_t '__int128'
+| `-BuiltinType 0x1afbc18d020 '__int128'
+|-TypedefDecl 0x1afbc18d358 <<invalid sloc>> <invalid sloc> implicit __uint128_t 'unsigned __int128'
+| `-BuiltinType 0x1afbc18d040 'unsigned __int128'
+|-TypedefDecl 0x1afbc18d6d0 <<invalid sloc>> <invalid sloc> implicit __NSConstantString '__NSConstantString_tag'
+| `-RecordType 0x1afbc18d440 '__NSConstantString_tag'
+|   `-CXXRecord 0x1afbc18d3b0 '__NSConstantString_tag'
+|-TypedefDecl 0x1afbc18d778 <<invalid sloc>> <invalid sloc> implicit __builtin_ms_va_list 'char *'
+| `-PointerType 0x1afbc18d730 'char *'
+|   `-BuiltinType 0x1afbc18cb00 'char'
+|-TypedefDecl 0x1afbc18d7e8 <<invalid sloc>> <invalid sloc> implicit __builtin_va_list 'char *'
+| `-PointerType 0x1afbc18d730 'char *'
+|   `-BuiltinType 0x1afbc18cb00 'char'
+`-FunctionDecl 0x1afbc18d898 <ast.cpp:1:1, line:7:1> line:1:5 hoge 'int ()'
+  `-CompoundStmt 0x1afbdaae158 <col:12, line:7:1>
+    |-DeclStmt 0x1afbdaadfd8 <line:2:3, col:35>
+    | `-VarDecl 0x1afbc18d9a0 <col:3, col:34> col:13 referenced some 'const int' cinit
+    |   `-BinaryOperator 0x1afbdaadf60 <col:20, col:34> 'int' '+'
+    |     |-IntegerLiteral 0x1afbc18da08 <col:20> 'int' 1
+    |     `-BinaryOperator 0x1afbdaadf40 <col:24, col:34> 'int' '/'
+    |       |-ParenExpr 0x1afbdaadf00 <col:24, col:30> 'int'
+    |       | `-BinaryOperator 0x1afbdaadee0 <col:25, col:29> 'int' '*'
+    |       |   |-IntegerLiteral 0x1afbc18da28 <col:25> 'int' 2
+    |       |   `-IntegerLiteral 0x1afbdaadec0 <col:29> 'int' 3
+    |       `-IntegerLiteral 0x1afbdaadf20 <col:34> 'int' 4
+    |-IfStmt 0x1afbdaae0d0 <line:3:3, line:5:3>
+    | |-BinaryOperator 0x1afbdaae068 <line:3:7, col:15> 'bool' '=='
+    | | |-ImplicitCastExpr 0x1afbdaae050 <col:7> 'int' <LValueToRValue>
+    | | | `-DeclRefExpr 0x1afbdaae030 <col:7> 'const int' lvalue Var 0x1afbc18d9a0 'some' 'const int' non_odr_use_constant
+    | | `-IntegerLiteral 0x1afbdaae010 <col:15> 'int' 10
+    | `-CompoundStmt 0x1afbdaae0b8 <col:19, line:5:3>
+    |   `-ReturnStmt 0x1afbdaae0a8 <line:4:5, col:12>
+    |     `-IntegerLiteral 0x1afbdaae088 <col:12> 'int' 0
+    `-ReturnStmt 0x1afbdaae148 <line:6:3, col:10>
+      `-ImplicitCastExpr 0x1afbdaae130 <col:10> 'int' <LValueToRValue>
+        `-DeclRefExpr 0x1afbdaae110 <col:10> 'const int' lvalue Var 0x1afbc18d9a0 'some' 'const int' non_odr_use_constant
