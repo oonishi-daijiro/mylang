@@ -2,9 +2,13 @@
 #include <cctype>
 #include <cstring>
 #include <deque>
+#include <functional>
 #include <iostream>
+#include <llvm/IR/BasicBlock.h>
 #include <memory>
+#include <new>
 #include <ostream>
+#include <queue>
 #include <sstream>
 #include <stack>
 #include <string>
@@ -26,17 +30,50 @@ Node *Node::getFirstChild() { return children.front(); }
 Node *Node::appendChild(Node *nodep) {
   if (nodep != nullptr) {
     children.push_back(nodep);
+  } else {
+    std::cout << "NULL CHILDREN!" << std::endl;
   }
   return this;
 };
+Node *Node::nextChild() {
+  auto node = children[iterationIndex];
+  iterationIndex++;
+  return node;
+}
+
+void Node::resetIteration() { iterationIndex = 0; }
+bool Node::endsChildIteration() { return iterationIndex == children.size(); }
+
+void Node::walkAllChildlenDFPO(std::function<void(Node *)> callback) {
+  std::stack<Node *> nodeStack;
+  std::vector<Node *> allChildren{};
+
+  nodeStack.push(this);
+
+  while (true) {
+    if (!nodeStack.top()->endsChildIteration()) {
+      nodeStack.push(nodeStack.top()->nextChild());
+    } else {
+      allChildren.emplace_back(nodeStack.top());
+      callback(nodeStack.top());
+      nodeStack.pop();
+    }
+    if (nodeStack.empty()) {
+      break;
+    }
+  }
+
+  for (auto &&child : allChildren) {
+    child->resetIteration();
+  }
+}
 
 void Root::printImpl(int depth, Node *node, std::stringstream &ss) {
   for (int i = 0; i < depth; i++) {
-    ss << "  |";
+    std::cout << "  |";
   }
 
-  ss << '-' << node->to_string() << '\n';
-
+  std::cout << '-' << node->to_string() << '\n';
   for (auto &&e : node->children) {
     printImpl(depth + 1, e, ss);
   }
@@ -45,7 +82,7 @@ void Root::printImpl(int depth, Node *node, std::stringstream &ss) {
 void Root::print() {
   std::stringstream ss;
   printImpl(0, rootNode, ss);
-  std::cout << ss.str() << std::endl;
+  // std::cout << ss.str() << std::endl;
 }
 
 Root::Root(Root &&src) {
@@ -59,29 +96,24 @@ std::string Root::to_string() {
   return ss.str();
 }
 
-void Root::gen() { rootNode->gen(); }
+void Root::gen() {
+  if (rootNode != nullptr) {
+    rootNode->walkAllChildlenDFPO([&](Node *node) { node->init(); });
+    rootNode->gen();
+  }
+}
 
 Root::Root(Node *root) : rootNode(root) {}
 Root::~Root() {
   if (rootNode != nullptr) {
     std::stack<Node *> nodeStack;
     nodeStack.push(rootNode);
-    int indent = 0;
     while (true) {
       if (nodeStack.top()->children.size() > 0) {
-        indent++;
         nodeStack.push(nodeStack.top()->getFirstChild());
       } else {
-#ifdef SHOW_DELETE_TREE
-        for (int i = 0; i < indent; i++) {
-          std::cout << "   |";
-        }
-        std::cout << "delete:" << nodeStack.top()->to_string() << std::endl;
-#endif
-
         delete nodeStack.top();
         nodeStack.pop();
-        indent--;
         if (!nodeStack.empty()) {
           nodeStack.top()->unlinkFirstChild();
         }
@@ -93,60 +125,20 @@ Root::~Root() {
   }
 }
 
-void Code::init(contextptr_t ctx, moduleptr_t md) {
+void LLVMBuilder::init(contextptr_t ctx, moduleptr_t md) {
   context = ctx;
   llvmModule = md;
   builder = std::make_unique<llvm::IRBuilder<>>(*ctx);
 };
 
-Code::moduleptr_t Code::release() { return std::move(llvmModule); }
+Code::moduleptr_t LLVMBuilder::release() { return std::move(llvmModule); }
 
 // block
 
-Block::Block(std::vector<Statement *> &&stmts, std::string name,
-             llvm::Function *parent)
-    : name{name}, parent{parent}, stmts{stmts} {
-  for (auto &&stmt : stmts) {
-    appendChild(stmt);
-  }
-};
-
 void Block::gen() {
-  if (entryPtr == nullptr) {
-    entryPtr = llvm::BasicBlock::Create(*context, name, parent);
-    endPtr = entryPtr;
-  }
-  builder->SetInsertPoint(entryPtr);
-
-  for (auto &&stmt : stmts) {
-    stmt->init();
-  }
-
-  for (auto &&stmt : stmts) {
-    stmt->gen();
-    auto endStmt = builder->GetInsertBlock()->end();
-
-    if (stmt->isa<Ret>()) {
-      break;
-    } else if (stmt->isa<Block>()) {
-      endPtr = llvm::cast<llvm::BasicBlock>(&endStmt);
-    }
-  }
-
-  for (auto &&stmt : stmts) {
-    stmt->finally();
-  }
-}
-
-void Block::setAsInsertPoint() { builder->SetInsertPoint(endPtr); }
-
-void Block::attach(llvm::BasicBlock *b) {
-  entryPtr = b;
-  for (auto beg = b->begin(); beg != b->end(); ++beg) {
-    if (llvm::isa<llvm::BasicBlock>(beg)) {
-      endPtr = llvm::cast<llvm::BasicBlock>(beg);
-    }
-  }
+  auto bb = llvm::BasicBlock::Create(*context, name, parentFunc);
+  builder->SetInsertPoint(bb);
+  cmpStmt.gen();
 }
 
 } // namespace Compiler

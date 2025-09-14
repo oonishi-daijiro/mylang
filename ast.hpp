@@ -3,11 +3,19 @@
 #include <cctype>
 #include <cstring>
 #include <deque>
+#include <experimental/filesystem>
 #include <format>
+#include <functional>
+#include <llvm/ADT/STLFunctionalExtras.h>
+#include <llvm/IR/BasicBlock.h>
+#include <llvm/IR/Function.h>
 #include <memory>
+#include <optional>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <type_traits>
+#include <typeinfo>
 #include <vector>
 
 #include <llvm/IR/IRBuilder.h>
@@ -19,12 +27,13 @@
 #include "debug.hpp"
 #include "errors.hpp"
 #include "token.hpp"
-#include "traits.hpp"
+// #include "traits.hpp"
 
 namespace Compiler {
 
-class Code {
+class LLVMBuilder {
 public:
+  virtual ~LLVMBuilder() = default;
   using contextptr_t = llvm::LLVMContext *;
   using moduleptr_t = llvm::Module *;
   using irbuilderptr_t = std::unique_ptr<llvm::IRBuilder<>>;
@@ -35,13 +44,15 @@ protected:
   static inline irbuilderptr_t builder;
 
 public:
+  static void init(contextptr_t context, moduleptr_t module);
+  static moduleptr_t release();
+};
+
+class Code : public LLVMBuilder {
+public:
   virtual ~Code() = default;
   Code() = default;
 
-  static void init(contextptr_t context, moduleptr_t module);
-  static moduleptr_t release();
-
-  virtual void gen() = 0;
   template <typename T>
   bool isa()
     requires(std::is_base_of_v<Code, T>)
@@ -54,12 +65,13 @@ public:
     requires(std::is_base_of_v<Code, T>)
   {
     if (!isa<T>()) {
-      throw CastError(
+      throw std::runtime_error(
           std::format("{} is not {}", this->to_string(), typeid(T).name()));
     }
     return dynamic_cast<T *>(this);
   }
 
+  virtual void gen() = 0;
   virtual std::string to_string() = 0;
 };
 
@@ -75,20 +87,35 @@ class Node : public Code {
   virtual void unlinkFirstChild() final;
   virtual Node *getFirstChild() final;
 
+  int iterationIndex = 0;
+  virtual Node *nextChild() final;
+  virtual bool endsChildIteration() final;
+  virtual void resetIteration() final;
+
   using tokitr_t = std::vector<Token>::const_iterator;
   static inline tokitr_t *curtok;
-
   std::deque<Node *> children{};
 
 protected:
   virtual Node *appendChild(Node *nodep) final;
+  std::deque<Node *> &getChildren() { return children; };
 
 public:
   const DebugInfo info;
-
   virtual ~Node() = default;
-  Node(auto &&...child) : info{(*curtok)->info} { (appendChild(child), ...); }
+
+  template <typename... Children>
+    requires(
+        std::is_base_of_v<
+            Code, std::remove_pointer_t<std::remove_reference_t<Children>>> &&
+        ...)
+  Node(Children &&...child) : info{(*curtok)->info} {
+    (appendChild(child), ...);
+  }
+
   bool empty() { return children.empty(); }
+  virtual void walkAllChildlenDFPO(std::function<void(Node *)>) final;
+  virtual void init() {}
 
   static inline void init(tokitr_t &itr) { curtok = &itr; }
 };
@@ -100,49 +127,39 @@ class Program : public Node {
 class Statement : public Node {
 public:
   using Node::Node;
-  virtual void init() {}
-  virtual void finally() {}
+};
+
+class CompoundStatement : public Statement {
+  std::vector<Statement *> stmts;
+
+public:
+  CompoundStatement(std::vector<Statement *> &&stmts) : stmts{stmts} {
+    for (auto &&stmt : stmts) {
+      appendChild(stmt);
+    }
+  }
+
+  virtual std::string to_string() override;
+  virtual void gen() override {
+    for (auto &&e : stmts) {
+      e->gen();
+    }
+  }
 };
 
 // Block(s)
 class Block : public Node {
-  llvm::Function *parent{nullptr};
-  llvm::BasicBlock *entryPtr{nullptr};
-  llvm::BasicBlock *endPtr{nullptr};
-
+  Statement &cmpStmt;
+  llvm::Function *parentFunc;
   std::string name;
-  bool generated = false;
-
-  std::vector<Statement *> stmts;
 
 public:
-  // remove name and parent constructor after.
-  Block(std::vector<Statement *> &&stmts, std::string name = "",
-        llvm::Function *parentFunc = nullptr);
-  Block() = delete;
-  virtual ~Block() = default;
-
-  llvm::BasicBlock *entry() { return entryPtr; };
-  llvm::BasicBlock *end() { return endPtr; };
-
-  void setAsInsertPoint();
-
-  void setName(std::string_view name) { this->name = name; }
-  void setParent(llvm::Function *func) { parent = func; }
-  void attach(llvm::BasicBlock *b);
+  Block(Statement *cmpStmt, const std::string &name = "",
+        llvm::Function *parentFunc = nullptr)
+      : Node{cmpStmt}, cmpStmt{*cmpStmt}, parentFunc{parentFunc}, name{name} {}
 
   virtual void gen() override;
   virtual std::string to_string() override;
-};
-
-class Expression : public Statement, public Value {
-public:
-  using Statement::Statement;
-  virtual ~Expression() = default;
-
-  virtual void gen() override { get(); };
-  virtual llvm::Value *get() override = 0;
-  virtual std::string to_string() override { return "[***expression***]"; };
 };
 
 class Root : public Code {

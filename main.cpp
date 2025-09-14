@@ -1,11 +1,11 @@
-
-
 #include <cctype>
 #include <cstring>
+#include <ios>
 #include <iostream>
 #include <llvm/IR/Verifier.h>
 #include <memory>
 #include <ostream>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 
@@ -37,7 +37,7 @@ int main(int argc, char **argv) {
     auto mainModule = std::make_unique<llvm::Module>("main", *context);
 
     auto mainFuncType =
-        llvm::FunctionType::get(llvm::Type::getDoubleTy(*context), false);
+        llvm::FunctionType::get(llvm::IntegerType::get(*context, 32), false);
     auto mainFunc = llvm::Function::Create(
         mainFuncType, llvm::Function::ExternalLinkage, "0", *mainModule);
 
@@ -45,7 +45,7 @@ int main(int argc, char **argv) {
     llvm::InitializeNativeTarget();
     llvm::InitializeNativeTargetAsmPrinter();
 
-    Compiler::Code::init(context.get(), mainModule.get());
+    Compiler::LLVMBuilder::init(context.get(), mainModule.get());
 
     std::string soucePath{(argc > 1 ? argv[1] : "../main.hoge")};
 
@@ -53,23 +53,28 @@ int main(int argc, char **argv) {
 
     Compiler::Tokennizer tokennizer{source};
     auto tokens = tokennizer.tokenize();
+    std::cout << "done tokenize." << std::endl;
     std::cout << source << std::endl;
-    for (auto &&token : tokens) {
-      std::cout << token.kind.to_string() << " :" << token.value << std::endl;
-    }
+
+    // for (auto &&token : tokens) {
+    //   std::cout << token.kind.to_string() << " :" << token.value <<
+    //   std::endl;
+    // }
 
     Compiler::Parser parser{std::move(tokens)};
 
     BuiltinTypes::define();
     auto root = parser.parse(mainFunc);
-    root.print();
 
     root.gen();
     llvm::verifyModule(*mainModule);
 
+    std::cout << "===============  AST  ===============" << std::endl;
+    root.print();
+
     std::cout << "===============  LLVM IR  ================" << std::endl;
     mainModule->print(llvm::outs(), nullptr);
-    std::cout << "===============  LLVM IR  ================" << std::endl;
+    std::cout << "==========================================" << std::endl;
 
     if (argc > 2) {
       util::writeToFile(argv[2], *mainModule);
@@ -79,12 +84,13 @@ int main(int argc, char **argv) {
     auto compiler = util::createCompiler(std::move(tsm));
     std::cout << "create compiler" << std::endl;
 
-    auto f = compiler->lookup("0")->toPtr<double()>();
+    auto f = compiler->lookup("0")->toPtr<int()>();
+    std::cout << std::boolalpha;
     std::cout << "return:" << f() << std::endl;
-  } catch (Compiler::CompileError &err) {
+  } catch (Compiler::Error &err) {
     util::printErrorSourceLine(source, err);
-  } catch (std::string &err) {
-    std::cout << "unhandled std::string error:" << err << std::endl;
+  } catch (std::runtime_error &e) {
+    std::cout << "[RUNTIME ERROR]" << e.what() << std::endl;
   }
   return 0;
 }

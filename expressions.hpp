@@ -1,87 +1,143 @@
 #pragma once
 
 #include "ast.hpp"
+#include "errors.hpp"
 #include "traits.hpp"
 
 #include <cstdint>
+#include <format>
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/Type.h>
 #include <llvm/IR/Value.h>
+#include <set>
+#include <string>
 
 namespace Compiler {
 
-class Numeric : virtual public Expression, virtual public Ordered {};
-
-class Double : virtual public Numeric {
-  double value;
-  llvm::Value *fcmp(llvm::FCmpInst::Predicate, Value &);
-
+class Expression : public Statement, public Value {
 public:
-  Double(double val) : Type{"double"}, value{val} {};
+  using Statement::Statement;
+  virtual ~Expression() = default;
 
-  virtual llvm::Value *get() override {
-    return llvm::ConstantFP::get(resolve(), value);
-  };
+  virtual void gen() override final { get(); };
+  virtual llvm::Value *get() override = 0;
 
-  virtual std::string to_string() override;
+  virtual void resolveType() = 0;
+  virtual void init() override final { resolveType(); };
 
-  virtual llvm::Value *add(Value &rv) override;
-  virtual llvm::Value *sub(Value &rv) override;
-  virtual llvm::Value *mul(Value &rv) override;
-  virtual llvm::Value *div(Value &rv) override;
-
-  virtual llvm::Value *minus() override;
-  virtual llvm::Value *plus() override;
-
-  virtual llvm::Value *eq(Value &rv) override;
-  virtual llvm::Value *ne(Value &rv) override;
-  virtual llvm::Value *lt(Value &rv) override;
-  virtual llvm::Value *le(Value &rv) override;
-  virtual llvm::Value *gt(Value &rv) override;
-  virtual llvm::Value *ge(Value &rv) override;
+  virtual std::string to_string() override { return "[***expression***]"; };
 };
 
-class Integer : public Numeric {
-  int32_t value;
-  llvm::Value *icmp(llvm::ICmpInst::Predicate, Value &);
+class DoubleExpr : public Expression {
+  double value;
 
 public:
-  Integer(int32_t val) : Type{"integer"}, value{val} {}
+  DoubleExpr(double val) : value{val} {};
 
   virtual llvm::Value *get() override {
-    std::cout << "get value" << std::endl;
-    return llvm::ConstantInt::get(resolve(), value);
+    return llvm::ConstantFP::get(type.getTypeInst(), value);
   };
 
+  virtual void resolveType() override { type.resolve("double"); }
+
   virtual std::string to_string() override;
+};
 
-  virtual llvm::Value *add(Value &rv) override;
-  virtual llvm::Value *sub(Value &rv) override;
-  virtual llvm::Value *mul(Value &rv) override;
-  virtual llvm::Value *div(Value &rv) override;
+class IntegerExpr : public Expression {
+  int32_t value;
 
-  virtual llvm::Value *minus() override;
-  virtual llvm::Value *plus() override;
+public:
+  IntegerExpr(int32_t val) : value{val} {}
 
-  virtual llvm::Value *eq(Value &rv) override;
-  virtual llvm::Value *ne(Value &rv) override;
-  virtual llvm::Value *lt(Value &rv) override;
-  virtual llvm::Value *le(Value &rv) override;
-  virtual llvm::Value *gt(Value &rv) override;
-  virtual llvm::Value *ge(Value &rv) override;
+  virtual llvm::Value *get() override {
+    return llvm::ConstantInt::get(type.getTypeInst(), value);
+  };
+
+  virtual void resolveType() override { type.resolve("integer"); }
+  virtual std::string to_string() override;
+};
+
+class BooleanExpr : public Expression {
+  bool value;
+
+public:
+  BooleanExpr(bool b) : value{b} {};
+  virtual llvm::Value *get() override {
+    return llvm::ConstantInt::get(type.getTypeInst(), value);
+  };
+  virtual void resolveType() override { type.resolve("boolean"); }
+  virtual std::string to_string() override;
 };
 
 class Substance : public Expression {
 public:
   virtual llvm::Value *get() = 0;
-  virtual void set(llvm::Value *) = 0;
-
+  virtual void set(Value &) = 0;
   virtual llvm::Value *ptr() = 0;
-
-  virtual llvm::Value *eval() final { return get(); };
 };
 
-class Variable : public Substance {};
+class Variable : public Substance {
+  Type *initialType{nullptr};
+  llvm::AllocaInst *pointer{nullptr};
+  std::string name;
+  static inline std::map<std::string, Variable *> varmap{};
+
+  Variable(const std::string &name, Type *type)
+      : name{name}, initialType{type} {}
+
+public:
+  static inline Variable *DefineNewVariable(const std::string &name,
+                                            Type &type) {
+    if (varmap.count(name)) {
+      throw SymbolError(std::format("variable {} is already defined", name));
+    } else {
+      auto ptr = new Variable{name, &type};
+      varmap.emplace(name, ptr);
+      return ptr;
+    }
+  }
+
+  Variable(const std::string &name) : name{name} {
+    if (!varmap.count(name)) {
+      throw SymbolError(std::format("variable \"{}\" is not defined", name));
+    } else {
+      initialType = varmap.at(name)->initialType;
+    }
+  }
+
+  virtual std::string to_string() override;
+
+  void allocate() {
+    if (pointer == nullptr) {
+      pointer = builder->CreateAlloca(type.getTypeInst(), nullptr, name);
+    }
+  }
+
+  virtual llvm::Value *get() override {
+    if (pointer == nullptr) {
+      pointer = varmap.at(name)->pointer;
+    }
+    return builder->CreateLoad(type.getTypeInst(), pointer);
+  };
+
+  virtual void set(Value &val) override {
+    if (pointer == nullptr) {
+      pointer = varmap.at(name)->pointer;
+    }
+    builder->CreateStore(val.get(), pointer);
+  }
+
+  virtual llvm::Value *ptr() override { return pointer; }
+
+  virtual void resolveType() override {
+    if (initialType != nullptr) {
+      type.resolve(initialType->name());
+    } else {
+      type.resolve(varmap.at(name)->type.name());
+    }
+  }
+  const std::string &getname() { return name; }
+};
 
 } // namespace Compiler

@@ -10,12 +10,15 @@ using namespace Compiler;
 class BuiltinTypes : public Code {
 public:
   static inline void define() {
-    Type::DefineNewType("double", llvm::Type::getDoubleTy(*context));
-    Type::DefineNewType("integer", llvm::Type::getInt32Ty(*context));
-    Type::DefineNewType("boolean", llvm::IntegerType::get(*context, 1));
+    Type::DefineNewType("double", llvm::Type::getDoubleTy(*context),
+                        new DoubleTyTrait());
+    Type::DefineNewType("integer", llvm::Type::getInt32Ty(*context),
+                        new IntegerTyTrait());
+    Type::DefineNewType("boolean", llvm::IntegerType::get(*context, 1),
+                        new BooleanTyTrait());
     Type::DefineNewType("void", llvm::Type::getVoidTy(*context));
 
-    // Type::DefineNewType("string", llvm::Type::GetSt);
+    Type::DefineNewType("char", llvm::IntegerType::get(*context, 8));
   }
   BuiltinTypes() = delete;
 };

@@ -33,7 +33,7 @@ using token_kind = string_enum<OPERATOR, LITERAL, BUILTIN_TYPE, DELIMITER,
 class Token {
 public:
   token_kind kind;
-  DebugInfo info;
+  const DebugInfo info;
   const std::string value;
 
   Token() = delete;
@@ -63,4 +63,4 @@ public:
   Tokennizer(std::string src);
   std::vector<Token> tokenize();
 };
-} // namespace AST
+} // namespace Compiler

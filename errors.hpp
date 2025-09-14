@@ -1,43 +1,52 @@
 #pragma once
-#include <stdexcept>
+
+#include "debug.hpp"
+#include "token.hpp"
 
 namespace Compiler {
 
-class Error : public std::runtime_error {
-public:
-  Error(const std::string &message) : std::runtime_error(message) {}
-};
+class Error {
+  std::string message;
+  DebugInfo info;
 
-struct CompileError : public std::runtime_error {
-  CompileError(size_t tokenIndex, Error &err)
-      : errorIndex{tokenIndex}, std::runtime_error{err.what()} {};
-  size_t errorIndex;
-};
-
-class TypeError : public Error {
 public:
-  TypeError(const std::string &message) : Error("TypeError: " + message) {}
-};
-
-class GenerationRuntimeError : public Error {
-public:
-  GenerationRuntimeError(const std::string &message)
-      : Error("GenerationRuntimeError: " + message) {}
-};
-
-class SyntaxError : public Error {
-public:
-  SyntaxError(const std::string &message) : Error("SyntaxError: " + message) {}
+  Error(DebugInfo info, const std::string &message)
+      : message{message}, info{info} {}
+  const std::string &what() { return message; };
+  const DebugInfo &getDebugInfo() { return info; }
 };
 
 class ParseError : public Error {
+  using tokitr_t = std::vector<Token>::const_iterator;
+  static inline tokitr_t *curtok;
+
 public:
-  ParseError(const std::string &message) : Error("ParseError:" + message) {}
+  ParseError(const std::string &message) : Error((*curtok)->info, message) {}
+  static inline void init(tokitr_t &tokCursor) { curtok = &tokCursor; }
 };
 
-class CastError : public Error {
+class SyntaxError : public ParseError {
 public:
-  CastError(const std::string &message) : Error("CastError: " + message) {}
+  using ParseError::ParseError;
+};
+
+class SymbolError : public ParseError {
+public:
+  using ParseError::ParseError;
+};
+
+class CodeGenError : public Error {
+public:
+  CodeGenError(const DebugInfo &info, const std::string message)
+      : Error(info, message) {};
+};
+
+class CastError : public CodeGenError {
+  using CodeGenError::CodeGenError;
+};
+
+class TypeError : public CodeGenError {
+  using CodeGenError::CodeGenError;
 };
 
 } // namespace Compiler

@@ -2,9 +2,6 @@
 
 #include "ast.hpp"
 #include "expressions.hpp"
-#include "operators.hpp"
-#include "statements.hpp"
-
 #include "token.hpp"
 
 namespace Compiler {
@@ -34,17 +31,17 @@ class Parser {
 
   // funccall = symbol "(" funcarg ")"
 
-  // block    ="{" (stmt ";")* "}"
+  // cmp_stmt = ("{" stms "}")*
 
-  // stmt     = (expr | if | ret | constdecl | vardecl | assign | funccall)
-  // ";"
+  // stmt     = (expr | if | ret | constdecl | vardecl | assign | funccall |
+  // cmp_stmt);
 
   // constdecl = "const" symbol "=" expr
   // vardecl   = "let" symbol "=" expr
-  // if       = "if" "(" expr ")" block (elif | ε)
+  // if       = "if" "(" expr ")" "{" cmp_stmt "}" (elif | else | ε)
   // assign   = symbol "=" expr
-  // elif     = "else if" "(" expr ")" block (elif | else | ε)*
-  // else     = "else" block
+  // elif     = "else if" "(" expr ")" "{" cmp_stmt "}" (elif | else | ε)*
+  // else     = "else" "{" cmp_stmt "}"
   // ret      = "return" epxr ";"
 
   // expr       = equality
@@ -58,6 +55,8 @@ class Parser {
   Block *parseBlock(std::string name = "", llvm::Function *parent = nullptr);
 
   Statement *parseStatement();
+  
+  Statement *parseCompoundStatement();
   Statement *parseReturn();
   Statement *parseMutableVarDecl();
   Statement *parseConstantVarDecl();

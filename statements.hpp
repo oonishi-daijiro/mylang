@@ -1,10 +1,13 @@
 #pragma once
 
 #include "ast.hpp"
-#include "expressions.hpp"
+#include "errors.hpp"
+#include "token.hpp"
 #include "traits.hpp"
+#include <llvm/IR/BasicBlock.h>
 #include <optional>
 
+#include "expressions.hpp"
 namespace Compiler {
 
 class Ret : public Statement {
@@ -19,53 +22,99 @@ public:
   virtual std::string to_string() override;
 };
 
-class IfStatement : public Statement {
-protected:
-  Expression &cond;
-  Block &then;
-  std::optional<IfStatement *> elif{std::nullopt};
-  llvm::BasicBlock *mb{nullptr};
+class MutableVarDeclaration : public Statement {
+  Variable *var{nullptr};
+  Value &initVal;
 
 public:
-  IfStatement() = delete;
-  IfStatement(Expression *cond, Block *then, IfStatement *elif);
+  MutableVarDeclaration(const std::string &name, Expression &initVal)
+      : initVal{initVal} {
+    var = Variable::DefineNewVariable(name, initVal.type);
+    appendChild(&initVal);
+    appendChild(var);
+  }
 
-  virtual ~IfStatement() = default;
+  void hosting() { var->allocate(); }
 
-  llvm::BasicBlock *blockgen(std::string name = "") {
+  virtual void gen() override {
+    var->allocate();
+    var->set(initVal);
+  }
+
+  virtual std::string to_string() override;
+};
+
+class Assign : public Statement {
+  Substance &lv;
+  Expression &rv;
+
+public:
+  Assign(Substance *lv, Expression *rv)
+      : lv{*lv}, rv{*rv}, Statement{lv, rv} {};
+
+  virtual void gen() override {
+    if (lv.type != rv.type) {
+      throw TypeError(this->info, std::format("type missmatching {} vs {}",
+                                              lv.type.name(), rv.type.name()));
+    }
+    lv.set(rv);
+  }
+  virtual std::string to_string() override;
+};
+
+class IfStatement : public Statement {
+  Value &cond;
+  Statement &then;
+  Statement *els{nullptr};
+
+  llvm::BasicBlock *genbb(const std::string &name = "") {
     return llvm::BasicBlock::Create(*context, name,
                                     builder->GetInsertBlock()->getParent());
   }
 
-  llvm::BasicBlock *merge() {
-    if (mb == nullptr) {
-      mb = blockgen("");
+public:
+  IfStatement(Expression *cond, Statement *then, Statement *els)
+      : Statement{cond, then}, cond{*cond}, then{*then}, els{els} {
+    if (els != nullptr) {
+      appendChild(els);
     }
-    return mb;
   }
 
-  bool endsReturnInst() {
-    auto block = builder->GetInsertBlock();
-    if (!block->empty()) {
-      return llvm::isa<llvm::ReturnInst>(block->back());
+  virtual void gen() override {
+    auto origin = builder->GetInsertBlock();
+    auto condVal = cond.get();
+
+    auto thenbb = genbb("");
+    builder->SetInsertPoint(thenbb);
+    then.gen();
+    auto thenEndBlock = builder->GetInsertBlock();
+
+    if (els != nullptr) {
+      auto elsbb = genbb("");
+      builder->SetInsertPoint(elsbb);
+      els->gen();
+      auto m = genbb("");
+      builder->CreateBr(m);
+      builder->SetInsertPoint(origin);
+      builder->CreateCondBr(condVal, thenbb, elsbb);
+      builder->SetInsertPoint(thenEndBlock);
+      builder->CreateBr(m);
+      builder->SetInsertPoint(m);
     } else {
-      return false;
+      auto m = genbb("");
+      builder->SetInsertPoint(thenEndBlock);
+      builder->CreateBr(m);
+      builder->SetInsertPoint(origin);
+      builder->CreateCondBr(condVal, thenbb, m);
+      builder->SetInsertPoint(m);
     }
-  }
+  };
 
-  virtual void gen() override;
   virtual std::string to_string() override;
 };
 
 class ElseStatement : public IfStatement {
-
 public:
-  ElseStatement(Block *then) : IfStatement(nullptr, then, nullptr) {}
-  virtual ~ElseStatement() = default;
-
-  virtual void gen() override;
-  virtual std::string to_string() override;
 };
 
-
-} // namespace AST
+} // namespace Compiler
