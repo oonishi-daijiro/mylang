@@ -56,9 +56,20 @@ std::vector<Token> Tokennizer::tokenize() {
     } else if (isOperator(c)) {
       token_kind k;
       if (c == '+') {
-        k = token_kind::of<"add">;
+        if (reader + 1 == '+') {
+          k = token_kind::of<"increment">;
+          ++reader;
+        } else {
+          k = token_kind::of<"add">;
+        }
       } else if (c == '-') {
-        k = token_kind::of<"sub">;
+        if (reader + 1 == '-') {
+          k = token_kind::of<"decrement">;
+          ++reader;
+
+        } else {
+          k = token_kind::of<"sub">;
+        }
       } else if (c == '*') {
         k = token_kind::of<"mul">;
       } else if (c == '/') {
@@ -136,6 +147,14 @@ std::vector<Token> Tokennizer::tokenize() {
         emplaceNewToken(token_kind::of<"boolean_literal">, "true");
       } else if (valueBuffer == "false") {
         emplaceNewToken(token_kind::of<"boolean_literal">, "false");
+      } else if (valueBuffer == "for") {
+        emplaceNewToken(token_kind::of<"for">);
+      } else if (valueBuffer == "while") {
+        emplaceNewToken(token_kind::of<"while">);
+      } else if (valueBuffer == "break") {
+        emplaceNewToken(token_kind::of<"break">);
+      } else if (valueBuffer == "continue") {
+        emplaceNewToken(token_kind::of<"continue">);
       } else {
         emplaceNewToken(token_kind::of<"symbol">, valueBuffer);
       }

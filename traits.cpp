@@ -1,6 +1,16 @@
 #include "traits.hpp"
+#include <llvm/IR/Constants.h>
 #include <llvm/IR/Value.h>
 namespace Compiler {
+
+Value &DoubleTyTrait::unit() {
+  if (unitVal != nullptr) {
+    unitVal = new ConstantValue(
+        llvm::ConstantFP::get(builder->getDoubleTy(), 1.0), "double");
+  }
+  return *unitVal;
+}
+
 llvm::Value *DoubleTyTrait::add(Value &lv, Value &rv) {
   return builder->CreateFAdd(lv.get(), rv.get());
 };
@@ -38,6 +48,15 @@ llvm::Value *DoubleTyTrait::gt(Value &lv, Value &rv) {
 llvm::Value *DoubleTyTrait::ge(Value &lv, Value &rv) {
   return builder->CreateFCmpOGE(lv.get(), rv.get());
 }
+
+Value &IntegerTyTrait::unit() {
+  if (unitVal == nullptr) {
+    auto llUnitval = llvm::ConstantInt::get(builder->getInt32Ty(), 1);
+    unitVal = new ConstantValue(llUnitval, "integer");
+  }
+  return *unitVal;
+}
+
 llvm::Value *IntegerTyTrait::add(Value &lv, Value &rv) {
   return builder->CreateAdd(lv.get(), rv.get());
 }

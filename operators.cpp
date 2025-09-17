@@ -1,20 +1,7 @@
 
 #include "operators.hpp"
-#include "ast.hpp"
-#include "errors.hpp"
-#include "expressions.hpp"
 #include "traits.hpp"
-
-#include <functional>
-#include <initializer_list>
-#include <llvm/IR/Operator.h>
-#include <llvm/IR/Type.h>
 #include <llvm/IR/Value.h>
-#include <optional>
-#include <string>
-#include <tuple>
-#include <type_traits>
-#include <vector>
 
 namespace Compiler {
 std::string BooleanOperator::operationRetTypeName() { return "boolean"; }
@@ -30,6 +17,32 @@ std::string LeOperator::kind() { return "<="; }
 std::string GtOperator::kind() { return ">"; }
 std::string GeOperator::kind() { return ">="; }
 std::string MinusOperator::kind() { return "(-)"; }
+std::string IncrementOperator::kind() { return "(...)++"; }
+std::string DecrementOperator::kind() { return "(...)--"; }
+
+MagmaOperator::MagmaOperator(Expression *lv, Expression *rv)
+    : Operator{lv, rv}, lv{*lv}, rv{*rv} {}
+
+void MagmaOperator::resolveType() {
+  if (lv.type != rv.type) {
+    throw TypeError(this->info, std::format("type mismatch: '{}' vs '{}'",
+                                            lv.type.name(), rv.type.name()));
+  } else {
+    type.resolve(lv.type.name());
+  }
+};
+
+BinaryOperator::BinaryOperator(Expression *lv, Expression *rv)
+    : Operator{lv, rv}, lv{*lv}, rv{*rv} {}
+
+void BinaryOperator::resolveType() {
+  if (lv.type != rv.type) {
+    throw TypeError(this->info, std::format("type mismatch: '{}' vs '{}'",
+                                            lv.type.name(), rv.type.name()));
+  } else {
+    type.resolve(operationRetTypeName());
+  }
+}
 
 llvm::Value *AddOperator::get() {
   auto trait = type.trait()->except<Field>();
@@ -86,4 +99,19 @@ llvm::Value *GeOperator::get() {
   return trait->ge(lv, rv);
 }
 
+llvm::Value *IncrementOperator::get() {
+  auto trait = o->type.trait()->except<Field>();
+  auto &unit = trait->unit();
+  auto prev = o->get();
+  builder->CreateStore(trait->add(*o, unit), o->ptr());
+  return prev;
+}
+
+llvm::Value *DecrementOperator::get() {
+  auto trait = o->type.trait()->except<Field>();
+  auto &unit = trait->unit();
+  auto prev = o->get();
+  builder->CreateStore(trait->sub(*o, unit), o->ptr());
+  return prev;
+}
 }; // namespace Compiler

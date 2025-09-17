@@ -3,14 +3,12 @@
 #include <cctype>
 #include <cstring>
 #include <deque>
-#include <experimental/filesystem>
 #include <format>
 #include <functional>
 #include <llvm/ADT/STLFunctionalExtras.h>
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Function.h>
 #include <memory>
-#include <optional>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -25,7 +23,6 @@
 #include <llvm/IR/Value.h>
 
 #include "debug.hpp"
-#include "errors.hpp"
 #include "token.hpp"
 // #include "traits.hpp"
 
@@ -87,11 +84,6 @@ class Node : public Code {
   virtual void unlinkFirstChild() final;
   virtual Node *getFirstChild() final;
 
-  int iterationIndex = 0;
-  virtual Node *nextChild() final;
-  virtual bool endsChildIteration() final;
-  virtual void resetIteration() final;
-
   using tokitr_t = std::vector<Token>::const_iterator;
   static inline tokitr_t *curtok;
   std::deque<Node *> children{};
@@ -113,7 +105,7 @@ public:
     (appendChild(child), ...);
   }
 
-  bool empty() { return children.empty(); }
+  bool hasNoChild() { return children.empty(); }
   virtual void walkAllChildlenDFPO(std::function<void(Node *)>) final;
   virtual void init() {}
 
@@ -127,24 +119,6 @@ class Program : public Node {
 class Statement : public Node {
 public:
   using Node::Node;
-};
-
-class CompoundStatement : public Statement {
-  std::vector<Statement *> stmts;
-
-public:
-  CompoundStatement(std::vector<Statement *> &&stmts) : stmts{stmts} {
-    for (auto &&stmt : stmts) {
-      appendChild(stmt);
-    }
-  }
-
-  virtual std::string to_string() override;
-  virtual void gen() override {
-    for (auto &&e : stmts) {
-      e->gen();
-    }
-  }
 };
 
 // Block(s)

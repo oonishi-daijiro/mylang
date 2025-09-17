@@ -1,11 +1,11 @@
-#include <cstddef>
 #include <cstdlib>
-#include <exception>
 #include <format>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/Value.h>
+#include <llvm/Support/Error.h>
 
 #include "ast.hpp"
+#include "control_statements.hpp"
 #include "errors.hpp"
 #include "expressions.hpp"
 #include "operators.hpp"
@@ -22,15 +22,6 @@ Block *Parser::parseBlock(std::string name, llvm::Function *parent) {
   return blk;
 }
 
-Statement *Parser::parseCompoundStatement() {
-  std::vector<Statement *> stmts{};
-  while (*(tokitr + 1) != token_kind::of<"end_block">) {
-    stmts.emplace_back(parseStatement());
-  }
-  auto cmstmt = new CompoundStatement(std::move(stmts));
-  return cmstmt;
-};
-
 Statement *Parser::parseStatement() {
   Statement *stmt = nullptr;
 
@@ -43,18 +34,22 @@ Statement *Parser::parseStatement() {
   } else if (consume(token_kind::of<"return_stmt">)) {
     stmt = parseReturn();
     expect(token_kind::of<"semicolon">);
-  } else if (consume(token_kind::of<"symbol">)) {
-    if (consume(token_kind::of<"assign">)) {
-      stmt = parseAssign();
-    } else {
-      stmt = new Variable(tokitr->value);
-    }
+  } else if (match(token_kind::of<"symbol">, token_kind::of<"assign">)) {
+    stmt = parseAssign();
     expect(token_kind::of<"semicolon">);
   } else if (consume(token_kind::of<"if_stmt">)) {
     stmt = parseIfStmt();
   } else if (consume(token_kind::of<"begin_block">)) {
     stmt = parseCompoundStatement();
     expect(token_kind::of<"end_block">);
+  } else if (consume(token_kind::of<"for">)) {
+    stmt = parseForStmt();
+  } else if (consume(token_kind::of<"continue">)) {
+    stmt = new ContinueStatement();
+    expect(token_kind::of<"semicolon">);
+  } else if (consume(token_kind::of<"break">)) {
+    stmt = new BreakStatement();
+    expect(token_kind::of<"semicolon">);
   } else {
     stmt = parseExpression();
     expect(token_kind::of<"semicolon">);
@@ -63,17 +58,21 @@ Statement *Parser::parseStatement() {
   return stmt;
 }
 
+Statement *Parser::parseCompoundStatement() {
+  std::vector<Statement *> stmts{};
+  while (*(tokitr + 1) != token_kind::of<"end_block">) {
+    stmts.emplace_back(parseStatement());
+  }
+  auto cmstmt = new CompoundStatement(std::move(stmts));
+  return cmstmt;
+};
+
 Statement *Parser::parseIfStmt() {
   expect(token_kind::of<"left_paren">);
   auto cond = parseExpression();
   expect(token_kind::of<"right_paren">);
-
-  expect(token_kind::of<"begin_block">);
-  auto then = parseCompoundStatement();
-  expect(token_kind::of<"end_block">);
-
+  auto then = parseStatement();
   Statement *els = nullptr;
-
   if (consume(token_kind::of<"else_if_stmt">)) {
     els = parseIfStmt();
   } else if (consume(token_kind::of<"else_stmt">)) {
@@ -81,6 +80,28 @@ Statement *Parser::parseIfStmt() {
   }
   return new IfStatement(cond, then, els);
 }
+
+Statement *Parser::parseForStmt() {
+  Statement *initial = nullptr;
+  Expression *continueCond = nullptr;
+  Expression *nextInit = nullptr;
+
+  expect(token_kind::of<"left_paren">);
+  if (consume(token_kind::of<"vardecl">)) {
+    initial = parseMutableVarDecl();
+  } else {
+    initial = parseExpression();
+  }
+  expect(token_kind::of<"semicolon">);
+  continueCond = parseExpression();
+  expect(token_kind::of<"semicolon">);
+  nextInit = parseExpression();
+  expect(token_kind::of<"right_paren">);
+  auto loopBody = parseStatement();
+  return new ForStatement(initial, continueCond, nextInit, loopBody);
+}
+
+Statement *Parser::parseWhileStmt() {};
 
 Statement *Parser::parseMutableVarDecl() {
   try {
@@ -94,19 +115,11 @@ Statement *Parser::parseMutableVarDecl() {
   }
 }
 
-Statement *Parser::parseConstantVarDecl() {
-  //   expect(token_kind::of<"symbol">);
-  //   auto symbol = *tokitr;
-  //   expect(token_kind::of<"assign">);
-  //   auto expr = parseExpression();
-  //   return new ConstantVarDecl(symbol.value, expr);
-}
-
 Statement *Parser::parseReturn() { return new Ret(parseExpression()); }
 
 Statement *Parser::parseAssign() {
   try {
-    auto symbol = tokitr - 1;
+    auto symbol = tokitr - 2;
     auto lv = new Variable(symbol->value);
     auto rv = parseExpression();
     auto assign = new Assign(lv, rv);
@@ -115,6 +128,7 @@ Statement *Parser::parseAssign() {
     throw SyntaxError(err);
   }
 }
+Statement *Parser::parseConstantVarDecl() { return nullptr; }
 
 Expression *Parser::parseExpression() { return parseEquality(); }
 
@@ -182,6 +196,11 @@ Expression *Parser::parseUnary() {
     node = new MinusOperator(parsePrimary());
   } else {
     node = parsePrimary();
+    if (consume(token_kind::of<"increment">)) {
+      node = new IncrementOperator(node);
+    } else if (consume(token_kind::of<"decrement">)) {
+      node = new DecrementOperator(node);
+    }
   }
   return node;
 }
@@ -211,9 +230,7 @@ Expression *Parser::parsePrimary() {
 double Parser::stodnoe(auto &&str) noexcept {
   try {
     return std::stod(str);
-  } catch (std::invalid_argument e) {
-    return 0;
-  } catch (std::exception e) {
+  } catch (std::invalid_argument &e) {
     return 0;
   }
 }

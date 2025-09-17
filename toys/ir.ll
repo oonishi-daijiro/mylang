@@ -1,53 +1,38 @@
-; ModuleID = 'main'
-source_filename = "main"
+; ModuleID = './4dumpast.cpp'
+source_filename = "./4dumpast.cpp"
+target datalayout = "e-m:w-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-w64-windows-gnu"
 
-define i32 @"0"() {
-  %hoge = alloca i32, align 4
-  store i32 100, ptr %hoge, align 4
-  %1 = load i32, ptr %hoge, align 4
-  %2 = icmp sgt i32 %1, 100
-  br i1 %2, label %3, label %14
+; Function Attrs: mustprogress noinline norecurse nounwind optnone uwtable
+define dso_local noundef i32 @main() #0 {
+  %1 = alloca i32, align 4
+  %2 = alloca i32, align 4
+  store i32 0, ptr %1, align 4
+  store i32 100, ptr %2, align 4
+  %3 = load i32, ptr %2, align 4
+  %4 = icmp eq i32 %3, 100
+  br i1 %4, label %5, label %6
 
-3:                                                ; preds = %0
-  %4 = load i32, ptr %hoge, align 4
-  %5 = icmp sgt i32 %4, 100
-  br i1 %5, label %6, label %7
+5:                                                ; preds = %0
+  store i32 100, ptr %1, align 4
+  br label %7
 
-6:                                                ; preds = %3
-  br label %13
+6:                                                ; preds = %0
+  store i32 200, ptr %1, align 4
+  br label %7
 
-7:                                                ; preds = %3
-  %8 = load i32, ptr %hoge, align 4
-  %9 = icmp sge i32 %8, 200
-  br i1 %9, label %10, label %11
-
-10:                                               ; preds = %7
-  br label %12
-
-11:                                               ; preds = %7
-  br label %12
-
-12:                                               ; preds = %10, %11
-  br label %13
-
-13:                                               ; preds = %6, %12
-  br label %20
-
-14:                                               ; preds = %0
-  %15 = load i32, ptr %hoge, align 4
-  %16 = icmp sge i32 %15, 200
-  br i1 %16, label %17, label %18
-
-17:                                               ; preds = %14
-  br label %19
-
-18:                                               ; preds = %14
-  br label %19
-
-19:                                               ; preds = %17, %18
-  br label %20
-
-20:                                               ; preds = %13, %19
-  %21 = load i32, ptr %hoge, align 4
-  ret i32 %21
+7:                                                ; preds = %6, %5
+  %8 = load i32, ptr %1, align 4
+  ret i32 %8
 }
+
+attributes #0 = { mustprogress noinline norecurse nounwind optnone uwtable "min-legal-vector-width"="0" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cmov,+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" }
+
+!llvm.module.flags = !{!0, !1, !2, !3}
+!llvm.ident = !{!4}
+
+!0 = !{i32 1, !"wchar_size", i32 2}
+!1 = !{i32 8, !"PIC Level", i32 2}
+!2 = !{i32 7, !"uwtable", i32 2}
+!3 = !{i32 1, !"MaxTLSAlign", i32 65536}
+!4 = !{!"clang version 19.1.4"}

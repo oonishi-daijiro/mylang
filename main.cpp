@@ -47,13 +47,11 @@ int main(int argc, char **argv) {
 
     Compiler::LLVMBuilder::init(context.get(), mainModule.get());
 
+    BuiltinTypes::define();
+
     std::string soucePath{(argc > 1 ? argv[1] : "../main.hoge")};
-
-    // AST
-
     Compiler::Tokennizer tokennizer{source};
     auto tokens = tokennizer.tokenize();
-    std::cout << "done tokenize." << std::endl;
     std::cout << source << std::endl;
 
     // for (auto &&token : tokens) {
@@ -63,14 +61,14 @@ int main(int argc, char **argv) {
 
     Compiler::Parser parser{std::move(tokens)};
 
-    BuiltinTypes::define();
     auto root = parser.parse(mainFunc);
-
-    root.gen();
-    llvm::verifyModule(*mainModule);
 
     std::cout << "===============  AST  ===============" << std::endl;
     root.print();
+
+    root.gen();
+
+    llvm::verifyModule(*mainModule);
 
     std::cout << "===============  LLVM IR  ================" << std::endl;
     mainModule->print(llvm::outs(), nullptr);
@@ -91,6 +89,8 @@ int main(int argc, char **argv) {
     util::printErrorSourceLine(source, err);
   } catch (std::runtime_error &e) {
     std::cout << "[RUNTIME ERROR]" << e.what() << std::endl;
+  } catch (std::string &e) {
+    std::cout << e << std::endl;
   }
   return 0;
 }

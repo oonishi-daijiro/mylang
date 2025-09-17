@@ -23,18 +23,8 @@ protected:
   Value &rv;
 
 public:
-  MagmaOperator(Expression *lv, Expression *rv)
-      : lv{*lv}, rv{*rv}, Operator{lv, rv} {}
-
-  virtual void resolveType() final {
-    if (lv.type != rv.type) {
-      throw TypeError(this->info, std::format("type mismatch: '{}' vs '{}'",
-                                              lv.type.name(), rv.type.name()));
-    } else {
-      type.resolve(lv.type.name());
-    }
-  };
-
+  MagmaOperator(Expression *lv, Expression *rv);
+  virtual void resolveType() final;
   virtual std::string kind() override = 0;
 };
 
@@ -44,16 +34,8 @@ protected:
   Value &rv;
 
 public:
-  BinaryOperator(Expression *lv, Expression *rv)
-      : lv{*lv}, rv{*rv}, Operator{lv, rv} {}
-  virtual void resolveType() final {
-    if (lv.type != rv.type) {
-      throw TypeError(this->info, std::format("type mismatch: '{}' vs '{}'",
-                                              lv.type.name(), rv.type.name()));
-    } else {
-      type.resolve(operationRetTypeName());
-    }
-  }
+  BinaryOperator(Expression *lv, Expression *rv);
+  virtual void resolveType() final;
   virtual std::string operationRetTypeName() = 0;
 };
 
@@ -64,11 +46,41 @@ protected:
 public:
   UnaryOperator(Expression *o) : Operator{o}, o{*o} {}
   virtual llvm::Value *get() override;
-  virtual void resolveType() final override { type.resolve(o.type.name()); };
+  virtual void resolveType() final override { type.resolve(o.type); };
 };
 
-class MinusOperator : public UnaryOperator {
+class UnaryAssignOperator : public Operator {
+protected:
+  Substance *o;
+
+public:
+  UnaryAssignOperator(Expression *sub) : Operator{sub} {
+    if (!sub->isa<Substance>()) {
+      throw TypeError(sub->info, std::format("this value is not assignable"));
+    } else {
+      o = sub->cast<Substance>();
+    }
+  }
+
+  virtual void resolveType() { type.resolve(o->type); }
+};
+
+class MinusOperator final : public UnaryOperator {
   using UnaryOperator::UnaryOperator;
+  virtual std::string kind() override;
+  virtual llvm::Value *get() override;
+};
+
+class IncrementOperator final : public UnaryAssignOperator {
+  using UnaryAssignOperator::UnaryAssignOperator;
+
+  virtual std::string kind() override;
+  virtual llvm::Value *get() override;
+};
+
+class DecrementOperator final : public UnaryAssignOperator {
+  using UnaryAssignOperator::UnaryAssignOperator;
+
   virtual std::string kind() override;
   virtual llvm::Value *get() override;
 };
@@ -78,61 +90,61 @@ class BooleanOperator : public BinaryOperator {
   virtual std::string operationRetTypeName() final override;
 };
 
-class AddOperator : public MagmaOperator {
+class AddOperator final : public MagmaOperator {
   using MagmaOperator::MagmaOperator;
   virtual std::string kind() override;
   virtual llvm::Value *get() override;
 };
 
-class SubOperator : public MagmaOperator {
+class SubOperator final : public MagmaOperator {
   using MagmaOperator::MagmaOperator;
   virtual std::string kind() override;
   virtual llvm::Value *get() override;
 };
 
-class MulOperator : public MagmaOperator {
+class MulOperator final : public MagmaOperator {
   using MagmaOperator::MagmaOperator;
   virtual std::string kind() override;
   virtual llvm::Value *get() override;
 };
 
-class DivOperator : public MagmaOperator {
+class DivOperator final : public MagmaOperator {
   using MagmaOperator::MagmaOperator;
   virtual std::string kind() override;
   virtual llvm::Value *get() override;
 };
 
-class EqOperator : public BooleanOperator {
+class EqOperator final : public BooleanOperator {
   using BooleanOperator::BooleanOperator;
   virtual std::string kind() override;
   virtual llvm::Value *get() override;
 };
 
-class NeqOperator : public BooleanOperator {
+class NeqOperator final : public BooleanOperator {
   using BooleanOperator::BooleanOperator;
   virtual std::string kind() override;
   virtual llvm::Value *get() override;
 };
 
-class LtOperator : public BooleanOperator {
+class LtOperator final : public BooleanOperator {
   using BooleanOperator::BooleanOperator;
   virtual std::string kind() override;
   virtual llvm::Value *get() override;
 };
 
-class LeOperator : public BooleanOperator {
+class LeOperator final : public BooleanOperator {
   using BooleanOperator::BooleanOperator;
   virtual std::string kind() override;
   virtual llvm::Value *get() override;
 };
 
-class GtOperator : public BooleanOperator {
+class GtOperator final : public BooleanOperator {
   using BooleanOperator::BooleanOperator;
   virtual std::string kind() override;
   virtual llvm::Value *get() override;
 };
 
-class GeOperator : public BooleanOperator {
+class GeOperator final : public BooleanOperator {
   using BooleanOperator::BooleanOperator;
   virtual std::string kind() override;
   virtual llvm::Value *get() override;

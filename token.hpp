@@ -6,7 +6,8 @@
 
 namespace Compiler {
 #define OPERATOR                                                               \
-  "lt", "gt", "le", "ge", "neq", "add", "sub", "div", "mul", "assign", "eq"
+  "lt", "gt", "le", "ge", "neq", "add", "sub", "div", "mul", "assign", "eq",   \
+      "increment", "decrement"
 //  lt: <
 //  gt: >
 //  le: <=
@@ -22,7 +23,7 @@ namespace Compiler {
 
 #define KEYWORD                                                                \
   "constdecl", "vardecl", "function", "return_stmt", "if_stmt",                \
-      "else_if_stmt", "else_stmt"
+      "else_if_stmt", "else_stmt", "for", "while", "break", "continue"
 
 #define SENTINEL "bof", "eof"
 #define SYMBOL "symbol"

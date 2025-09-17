@@ -1,12 +1,18 @@
 {
-  let hoge = 100;
-  if (hoge > 100) {
-    if (hoge > 100) {
-    } else if (hoge >= 200) {
-    } else {
+  let hoge = 0;
+  for (let i = 0; i < 10; i++) {
+    for (let j = 0; j < 10; j++) {
+      if (j == 3) {
+        break;
+      }
+      hoge++;
     }
-  } else if (hoge >= 200) {
-  } else {
+    if (i == 2) {
+      continue;
+    } else if (i == 3) {
+      break;
+    }
+    hoge++;
   }
   return hoge;
 }

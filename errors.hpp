@@ -22,12 +22,16 @@ class ParseError : public Error {
 
 public:
   ParseError(const std::string &message) : Error((*curtok)->info, message) {}
+  ParseError(const DebugInfo &info, const std::string &message)
+      : Error(info, message) {}
   static inline void init(tokitr_t &tokCursor) { curtok = &tokCursor; }
 };
 
 class SyntaxError : public ParseError {
 public:
   using ParseError::ParseError;
+  SyntaxError(const DebugInfo &info, const std::string &message)
+      : ParseError{info, message} {}
 };
 
 class SymbolError : public ParseError {

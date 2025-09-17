@@ -16,6 +16,18 @@ class Parser {
   bool consume(token_kind k);
   bool expect(token_kind k) noexcept(false);
 
+  template <typename... T> bool match(T... k) {
+    bool matched = false;
+    token_kind toks[sizeof...(k)] = {k...};
+    for (size_t i = 1; i <= sizeof...(k); i++) {
+      matched &= (*(tokitr + i)).kind == toks[i];
+    }
+    if (matched) {
+      tokitr += sizeof...(k);
+    }
+    return matched;
+  };
+
   double stodnoe(auto &&) noexcept;
 
   // program  = function*
@@ -33,8 +45,8 @@ class Parser {
 
   // cmp_stmt = ("{" stms "}")*
 
-  // stmt     = (expr | if | ret | constdecl | vardecl | assign | funccall |
-  // cmp_stmt);
+  // stmt     = (expr | if | ret | constdecl | vardecl | assign | funccall ) ";"
+  //            | (cmp_stmt | for | while)
 
   // constdecl = "const" symbol "=" expr
   // vardecl   = "let" symbol "=" expr
@@ -43,25 +55,29 @@ class Parser {
   // elif     = "else if" "(" expr ")" "{" cmp_stmt "}" (elif | else | ε)*
   // else     = "else" "{" cmp_stmt "}"
   // ret      = "return" epxr ";"
+  // for      = "for" "(" (vardecl|expr) ";" expr ";" expr ")" stmt
+  // while    = "while" "(" expr ")" stmt
 
   // expr       = equality
   // equality   = relational ("==" relational | "!=" relational)*
   // relational = add ("<" add | ">" add | "<=" add | ">=" add)*
   // add        = mul ("+" mul | "-" mul)*
   // mul        = unary ("*" unary | "/" unary)*
-  // unary      = ("+" | "-")? primary
+  // unary      = (("+" | "-")? primary)| primary++ | primary--
   // primary    = (num | symbol | funccall) | "(" expr ")"
 
   Block *parseBlock(std::string name = "", llvm::Function *parent = nullptr);
 
   Statement *parseStatement();
-  
+
   Statement *parseCompoundStatement();
   Statement *parseReturn();
   Statement *parseMutableVarDecl();
   Statement *parseConstantVarDecl();
   Statement *parseAssign();
   Statement *parseIfStmt();
+  Statement *parseForStmt();
+  Statement *parseWhileStmt();
 
   Expression *parseExpression();
 

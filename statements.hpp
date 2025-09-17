@@ -1,18 +1,23 @@
 #pragma once
+#include <algorithm>
+#include <cstdio>
+#include <llvm/IR/BasicBlock.h>
+#include <llvm/IR/Instructions.h>
+#include <ostream>
 
 #include "ast.hpp"
-#include "errors.hpp"
-#include "token.hpp"
-#include "traits.hpp"
-#include <llvm/IR/BasicBlock.h>
-#include <optional>
-
 #include "expressions.hpp"
+#include "traits.hpp"
+#include "utils.hpp"
+
 namespace Compiler {
 
-class Ret : public Statement {
+class Ret final : public Statement {
 private:
   Value &retVal;
+  llvm::AllocaInst *retPtr;
+  llvm::BasicBlock *retbb;
+  llvm::BasicBlock *parentbb;
 
 public:
   Ret(Expression *expr);
@@ -20,101 +25,62 @@ public:
 
   virtual void gen() override;
   virtual std::string to_string() override;
+
+  const Type &returnType();
+  void ret2allocaPtr(llvm::AllocaInst *ptr);
+  void retBlock(llvm::BasicBlock *bb);
+
+  void ret2allocaRetBB(llvm::BasicBlock *blk) { this->retbb = blk; };
+  void ret2alloca() {
+    auto inst = parentbb->getTerminator();
+    auto origin = builder->GetInsertBlock();
+    if (inst != nullptr) {
+      parentbb->getTerminator()->eraseFromParent();
+    }
+    builder->SetInsertPoint(parentbb);
+    builder->CreateBr(retbb);
+    builder->SetInsertPoint(origin);
+  }
 };
 
-class MutableVarDeclaration : public Statement {
+class CompoundStatement : public Statement {
+  std::vector<Statement *> stmts;
+
+public:
+  CompoundStatement(std::vector<Statement *> &&stmts) : stmts{stmts} {
+    for (auto &&stmt : stmts) {
+      appendChild(stmt);
+    }
+  }
+
+  virtual std::string to_string() override;
+  virtual void gen() override {
+    for (auto &&e : stmts) {
+      e->gen();
+    }
+  }
+};
+
+class MutableVarDeclaration final : public Statement {
   Variable *var{nullptr};
   Value &initVal;
 
 public:
-  MutableVarDeclaration(const std::string &name, Expression &initVal)
-      : initVal{initVal} {
-    var = Variable::DefineNewVariable(name, initVal.type);
-    appendChild(&initVal);
-    appendChild(var);
-  }
-
-  void hosting() { var->allocate(); }
-
-  virtual void gen() override {
-    var->allocate();
-    var->set(initVal);
-  }
-
+  MutableVarDeclaration(const std::string &name, Expression &initVal);
+  virtual void hosting() final;
+  virtual void gen() override;
   virtual std::string to_string() override;
 };
 
-class Assign : public Statement {
+class Assign final : public Statement {
   Substance &lv;
   Expression &rv;
 
 public:
-  Assign(Substance *lv, Expression *rv)
-      : lv{*lv}, rv{*rv}, Statement{lv, rv} {};
+  Assign(Substance *lv, Expression *rv);
 
-  virtual void gen() override {
-    if (lv.type != rv.type) {
-      throw TypeError(this->info, std::format("type missmatching {} vs {}",
-                                              lv.type.name(), rv.type.name()));
-    }
-    lv.set(rv);
-  }
+  virtual void gen() override;
   virtual std::string to_string() override;
-};
-
-class IfStatement : public Statement {
-  Value &cond;
-  Statement &then;
-  Statement *els{nullptr};
-
-  llvm::BasicBlock *genbb(const std::string &name = "") {
-    return llvm::BasicBlock::Create(*context, name,
-                                    builder->GetInsertBlock()->getParent());
-  }
-
-public:
-  IfStatement(Expression *cond, Statement *then, Statement *els)
-      : Statement{cond, then}, cond{*cond}, then{*then}, els{els} {
-    if (els != nullptr) {
-      appendChild(els);
-    }
-  }
-
-  virtual void gen() override {
-    auto origin = builder->GetInsertBlock();
-    auto condVal = cond.get();
-
-    auto thenbb = genbb("");
-    builder->SetInsertPoint(thenbb);
-    then.gen();
-    auto thenEndBlock = builder->GetInsertBlock();
-
-    if (els != nullptr) {
-      auto elsbb = genbb("");
-      builder->SetInsertPoint(elsbb);
-      els->gen();
-      auto m = genbb("");
-      builder->CreateBr(m);
-      builder->SetInsertPoint(origin);
-      builder->CreateCondBr(condVal, thenbb, elsbb);
-      builder->SetInsertPoint(thenEndBlock);
-      builder->CreateBr(m);
-      builder->SetInsertPoint(m);
-    } else {
-      auto m = genbb("");
-      builder->SetInsertPoint(thenEndBlock);
-      builder->CreateBr(m);
-      builder->SetInsertPoint(origin);
-      builder->CreateCondBr(condVal, thenbb, m);
-      builder->SetInsertPoint(m);
-    }
-  };
-
-  virtual std::string to_string() override;
-};
-
-class ElseStatement : public IfStatement {
-public:
 };
 
 } // namespace Compiler

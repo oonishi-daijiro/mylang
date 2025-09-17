@@ -1,26 +1,11 @@
-
-#include <cctype>
-#include <cstring>
-#include <deque>
-#include <functional>
-#include <iostream>
-#include <llvm/IR/BasicBlock.h>
-#include <memory>
-#include <new>
-#include <ostream>
-#include <queue>
-#include <sstream>
-#include <stack>
-#include <string>
-#include <utility>
-
-#include <llvm/IR/IRBuilder.h>
-#include <llvm/IR/Instructions.h>
-#include <llvm/IR/Value.h>
-#include <vector>
-
 #include "ast.hpp"
 #include "statements.hpp"
+#include "traits.hpp"
+#include <algorithm>
+#include <llvm/IR/BasicBlock.h>
+#include <llvm/IR/Function.h>
+#include <stack>
+#include <stacktrace>
 
 namespace Compiler {
 
@@ -35,36 +20,34 @@ Node *Node::appendChild(Node *nodep) {
   }
   return this;
 };
-Node *Node::nextChild() {
-  auto node = children[iterationIndex];
-  iterationIndex++;
-  return node;
-}
 
-void Node::resetIteration() { iterationIndex = 0; }
-bool Node::endsChildIteration() { return iterationIndex == children.size(); }
+// Node *Node::nextChild() {
+//   auto node = children[iterationIndex];
+//   iterationIndex++;
+//   return node;
+// }
+
+// void Node::resetIteration() { iterationIndex = 0; }
+// bool Node::endsChildIteration() { return iterationIndex == children.size(); }
 
 void Node::walkAllChildlenDFPO(std::function<void(Node *)> callback) {
-  std::stack<Node *> nodeStack;
-  std::vector<Node *> allChildren{};
+  std::stack<Node *> s{};
+  std::set<Node *> v{};
 
-  nodeStack.push(this);
+  s.push(this);
 
-  while (true) {
-    if (!nodeStack.top()->endsChildIteration()) {
-      nodeStack.push(nodeStack.top()->nextChild());
+  while (!s.empty()) {
+    if (!s.top()->hasNoChild() && !v.contains(s.top())) {
+      v.emplace(s.top());
+      auto chldrn = s.top()->getChildren();
+      for (auto &&ritr = chldrn.rbegin(); ritr != chldrn.rend(); ++ritr) {
+        auto &&node = *ritr;
+        s.push(node);
+      }
     } else {
-      allChildren.emplace_back(nodeStack.top());
-      callback(nodeStack.top());
-      nodeStack.pop();
+      callback(s.top());
+      s.pop();
     }
-    if (nodeStack.empty()) {
-      break;
-    }
-  }
-
-  for (auto &&child : allChildren) {
-    child->resetIteration();
   }
 }
 
@@ -138,7 +121,64 @@ Code::moduleptr_t LLVMBuilder::release() { return std::move(llvmModule); }
 void Block::gen() {
   auto bb = llvm::BasicBlock::Create(*context, name, parentFunc);
   builder->SetInsertPoint(bb);
+
+  const Type *retType = nullptr;
+
+  walkAllChildlenDFPO([&](Node *n) {
+    if (n->isa<Ret>()) {
+      auto ret = n->cast<Ret>();
+      if (retType != nullptr && ret->returnType() != *retType) {
+        throw TypeError(ret->info,
+                        std::format("return type missmatching {} vs {}",
+                                    retType->name(), ret->returnType().name()));
+      } else {
+        retType = &ret->returnType();
+      }
+    }
+  });
+
+  llvm::AllocaInst *retptr = nullptr;
+  llvm::Type *retTypeInst = nullptr;
+
+  if (retType != nullptr) {
+    retTypeInst = retType->getTypeInst();
+    retptr = builder->CreateAlloca(retTypeInst, nullptr, "ret");
+  }
+
+  auto retbb = llvm::BasicBlock::Create(*context, "return");
+
+  walkAllChildlenDFPO([&](Node *n) {
+    if (n->isa<MutableVarDeclaration>()) {
+      n->cast<MutableVarDeclaration>()->hosting();
+    } else if (n->isa<Ret>()) {
+      n->cast<Ret>()->ret2allocaPtr(retptr);
+      n->cast<Ret>()->ret2allocaRetBB(retbb);
+    }
+  });
+
   cmpStmt.gen();
+
+  walkAllChildlenDFPO([&](Node *n) {
+    if (n->isa<Ret>()) {
+      n->cast<Ret>()->ret2alloca();
+    }
+  });
+
+  auto origin = builder->GetInsertBlock();
+  retbb->insertInto(parentFunc);
+
+  if (retptr != nullptr && retTypeInst != nullptr) {
+    builder->SetInsertPoint(retbb);
+    auto retv = builder->CreateLoad(retTypeInst, retptr);
+    builder->CreateRet(retv);
+
+  } else {
+    builder->SetInsertPoint(origin);
+    builder->CreateBr(retbb);
+    builder->SetInsertPoint(retbb);
+    builder->CreateRet(nullptr);
+  }
+  builder->SetInsertPoint(origin);
 }
 
 } // namespace Compiler

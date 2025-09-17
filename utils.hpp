@@ -4,6 +4,7 @@
 #include <llvm/ExecutionEngine/Orc/Core.h>
 #include <llvm/ExecutionEngine/Orc/LLJIT.h>
 #include <llvm/ExecutionEngine/Orc/ThreadSafeModule.h>
+#include <llvm/IR/Instruction.h>
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Value.h>
@@ -47,10 +48,10 @@ inline void writeToFile(std::string_view filename, llvm::Module &mainModule) {
 
 inline void printErrorSourceLine(std::string &source, Compiler::Error &error) {
   int newLineIndex = 0;
-  int indentLen = 0;
+  size_t indentLen = 0;
   int linePos = 0;
 
-  for (int i = 0; i < source.size() && i < error.getDebugInfo().tokenIndex;
+  for (size_t i = 0; i < source.size() && i < error.getDebugInfo().tokenIndex;
        i++) {
     indentLen++;
     if (source[i] == '\n') {
@@ -65,12 +66,13 @@ inline void printErrorSourceLine(std::string &source, Compiler::Error &error) {
 
   std::cout << linePos + 1 << " | ";
 
-  for (int i = newLineIndex + 1; i <= source.size() && source[i] != '\n'; i++) {
+  for (size_t i = newLineIndex + 1; i <= source.size() && source[i] != '\n';
+       i++) {
     std::cout << source[i];
   }
 
   std::cout << '\n';
-  for (int i = 0; i < indentLen; i++) {
+  for (size_t i = 0; i < indentLen; i++) {
     if (i == std::to_string(linePos + 1).size() + 1) {
       std::cout << '|';
     } else {
@@ -90,7 +92,7 @@ createThreadSafeModule(std::unique_ptr<llvm::LLVMContext> &&context,
 
 std::unique_ptr<llvm::orc::LLJIT> inline createCompiler(
     llvm::orc::ThreadSafeModule &&module) noexcept(false) {
-  auto JITcompiler = std::move(llvm::orc::LLJITBuilder().create());
+  auto JITcompiler = llvm::orc::LLJITBuilder().create();
   if (JITcompiler.takeError()) {
     throw std::runtime_error(
         std::format("failed to create JIT compiler{}",
@@ -111,6 +113,18 @@ template <typename T> auto safeCast(::llvm::Value *value) {
     return ::llvm::cast<T>(value);
   } else {
     return nullptr;
+  }
+}
+
+inline std::string lltos(auto *inst) {
+  if (inst != nullptr) {
+    std::string s;
+    llvm::raw_string_ostream rso(s);
+    inst->print(rso);
+    rso.flush();
+    return s;
+  } else {
+    return "[[[nullptr]]]";
   }
 }
 
