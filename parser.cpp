@@ -3,6 +3,7 @@
 #include <llvm/IR/Function.h>
 #include <llvm/IR/Value.h>
 #include <llvm/Support/Error.h>
+#include <stacktrace>
 
 #include "ast.hpp"
 #include "control_statements.hpp"
@@ -24,6 +25,7 @@ Block *Parser::parseBlock(std::string name, llvm::Function *parent) {
 
 Statement *Parser::parseStatement() {
   Statement *stmt = nullptr;
+  std::cout << "consuming:" << (*(tokitr + 1)).kind.to_string() << std::endl;
 
   if (consume(token_kind::of<"vardecl">)) {
     stmt = parseMutableVarDecl();
@@ -44,6 +46,9 @@ Statement *Parser::parseStatement() {
     expect(token_kind::of<"end_block">);
   } else if (consume(token_kind::of<"for">)) {
     stmt = parseForStmt();
+  } else if (consume(token_kind::of<"while">)) {
+    std::cout<< "parse while" <<std::endl;
+    stmt = parseWhileStmt();
   } else if (consume(token_kind::of<"continue">)) {
     stmt = new ContinueStatement();
     expect(token_kind::of<"semicolon">);
@@ -101,7 +106,16 @@ Statement *Parser::parseForStmt() {
   return new ForStatement(initial, continueCond, nextInit, loopBody);
 }
 
-Statement *Parser::parseWhileStmt() {};
+Statement *Parser::parseWhileStmt() {
+  Expression *cond = nullptr;
+  Statement *body = nullptr;
+
+  expect(token_kind::of<"left_paren">);
+  cond = parseExpression();
+  expect(token_kind::of<"right_paren">);
+  body = parseStatement();
+  return new WhileStatement(cond, body);
+};
 
 Statement *Parser::parseMutableVarDecl() {
   try {
@@ -220,7 +234,7 @@ Expression *Parser::parsePrimary() {
     primary = new BooleanExpr(tokitr->value == "true" ? true : false);
   } else {
     std::string err =
-        std::format("[unexpected token] expected: numeric or symbol but {}",
+        std::format("[unexpected token] primary expression but {}",
                     tokitr->kind.to_string());
     throw SyntaxError(err);
   }

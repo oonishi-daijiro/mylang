@@ -7,10 +7,6 @@
 #include "utils.hpp"
 
 namespace Compiler {
-llvm::BasicBlock *IfStatement::genbb(const std::string &name) {
-  return llvm::BasicBlock::Create(*context, name,
-                                  builder->GetInsertBlock()->getParent());
-}
 
 IfStatement::IfStatement(Expression *cond, Statement *then, Statement *els)
     : Statement{cond, then}, cond{*cond}, then{*then}, els{els} {
@@ -18,6 +14,11 @@ IfStatement::IfStatement(Expression *cond, Statement *then, Statement *els)
     appendChild(els);
   }
 }
+
+llvm::BasicBlock *IfStatement::genbb(const std::string &name) {
+  return llvm::BasicBlock::Create(*context, name,
+                                  builder->GetInsertBlock()->getParent());
+};
 
 void IfStatement::gen() {
   auto origin = builder->GetInsertBlock();
@@ -61,11 +62,6 @@ ForStatement::ForStatement(Statement *initStatement, Expression *loopCond,
       initStmt{*initStatement}, loopCond{*loopCond}, next{*nextExpr},
       loopBody{*loopBody} {}
 
-llvm::BasicBlock *ForStatement::genbb(const std::string &name) {
-  return llvm::BasicBlock::Create(*context, name,
-                                  builder->GetInsertBlock()->getParent());
-}
-
 void ForStatement::init() {
   if (loopCond.type.name() != "boolean") {
     throw TypeError(info, std::format("condition must be boolean but: {}",
@@ -82,6 +78,11 @@ void ForStatement::init() {
       n->cast<BreakStatement>()->setEscapebb(mergebb);
     }
   });
+};
+
+llvm::BasicBlock *ForStatement::genbb(const std::string &name) {
+  return llvm::BasicBlock::Create(*context, name,
+                                  builder->GetInsertBlock()->getParent());
 };
 
 void ForStatement::gen() {
@@ -110,6 +111,49 @@ void ForStatement::gen() {
 
   builder->SetInsertPoint(mergebb);
 };
+
+WhileStatement::WhileStatement(Expression *cond, Statement *stmt)
+    : Statement{cond, stmt}, cond{*cond}, whileBody{*stmt} {}
+
+llvm::BasicBlock *WhileStatement::genbb(const std::string &name) {
+  return llvm::BasicBlock::Create(*context, name,
+                                  builder->GetInsertBlock()->getParent());
+};
+
+void WhileStatement::init() {
+  if (cond.type.name() != "boolean") {
+    throw TypeError(info, std::format("condition must be boolean but: {}",
+                                      cond.type.name()));
+  }
+  mergebb = llvm::BasicBlock::Create(*context, "while-merge");
+  condbb = llvm::BasicBlock::Create(*context, "while-cond");
+
+  walkAllChildlenDFPO([&](Node *n) {
+    if (n->isa<BreakStatement>()) {
+      n->cast<BreakStatement>()->setEscapebb(mergebb);
+    } else if (n->isa<ContinueStatement>()) {
+      n->cast<ContinueStatement>()->setNextbb(condbb);
+    }
+  });
+}
+
+void WhileStatement::gen() {
+  auto parent = builder->GetInsertBlock()->getParent();
+  builder->CreateBr(condbb);
+
+  auto whilebodybb = genbb("while-body");
+  condbb->insertInto(parent);
+  mergebb->insertInto(parent);
+
+  builder->SetInsertPoint(condbb);
+  builder->CreateCondBr(cond.get(), whilebodybb, mergebb);
+
+  builder->SetInsertPoint(whilebodybb);
+  whileBody.gen();
+  builder->CreateBr(condbb);
+
+  builder->SetInsertPoint(mergebb);
+}
 
 ContinueStatement::ContinueStatement() : Statement{} {}
 void ContinueStatement::setNextbb(llvm::BasicBlock *bb) {
@@ -145,8 +189,5 @@ void BreakStatement::gen() {
         std::format("break statement must be inside for/while statement"));
   }
 }
-
-WhileStatement::WhileStatement(Expression *cond, Statement *stmt)
-    : Statement{cond, stmt}, cond{*cond}, stmt{*stmt} {}
 
 }; // namespace Compiler

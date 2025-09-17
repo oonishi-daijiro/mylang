@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.16)
 
 project(learn-llvm)
 
-set(CMAKE_CXX_OMPILER clang++)
+set(CMAKE_CXX_COMPILER clang++)
 set(CMAKE_C_COMPILER clang)
 
 set(CMAKE_BUILD_TYPE Release)
@@ -19,7 +19,6 @@ add_definitions(${LLVM_DEFINITIONS_LIST})
 separate_arguments(LLVM_DEFINITIONS_LIST NATIVE_COMMAND ${LLVM_DEFINITIONS})
 add_definitions(${LLVM_DEFINITIONS_LIST})
 
-# add_compile_options(-Wall)
 
 file(GLOB src ./*.cpp)
 

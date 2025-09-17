@@ -21,15 +21,6 @@ Node *Node::appendChild(Node *nodep) {
   return this;
 };
 
-// Node *Node::nextChild() {
-//   auto node = children[iterationIndex];
-//   iterationIndex++;
-//   return node;
-// }
-
-// void Node::resetIteration() { iterationIndex = 0; }
-// bool Node::endsChildIteration() { return iterationIndex == children.size(); }
-
 void Node::walkAllChildlenDFPO(std::function<void(Node *)> callback) {
   std::stack<Node *> s{};
   std::set<Node *> v{};

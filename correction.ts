@@ -1,20 +1,14 @@
 function main() {
-    let hoge = 0;
+  let hoge = 10;
+  while (hoge < 10) {
     for (let i = 0; i < 10; i++) {
-      for (let j = 0; j < 10; j++) {
-        if (j == 3) {
-          break;
-        }
-        hoge++;
-      }
-      if (i == 2) {
+      if (i == 3) {
         continue;
-      } else if (i == 3) {
-        break;
       }
       hoge++;
     }
-    return hoge;
+  }
+  return hoge;
 }
 
 console.log(main());

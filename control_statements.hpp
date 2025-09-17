@@ -12,13 +12,12 @@ class IfStatement : public Statement {
   Statement &then;
   Statement *els{nullptr};
 
-  llvm::BasicBlock *genbb(const std::string &name = "");
-
 public:
   IfStatement(Expression *cond, Statement *then, Statement *els);
 
   virtual void gen() override;
   virtual std::string to_string() override;
+  llvm::BasicBlock *genbb(const std::string &name = "");
 };
 
 class ForStatement final : public Statement {
@@ -35,9 +34,9 @@ public:
                Expression *nextExpr, Statement *loopBody);
   ~ForStatement() = default;
 
-  llvm::BasicBlock *genbb(const std::string &name);
-  virtual void init() override;
+  llvm::BasicBlock *genbb(const std::string &name = "");
 
+  virtual void init() override;
   virtual std::string to_string() override;
   virtual void gen() override;
 };
@@ -64,12 +63,16 @@ public:
 
 class WhileStatement : public Statement {
   Value &cond;
-  Statement &stmt;
+  Statement &whileBody;
+  llvm::BasicBlock *mergebb{nullptr};
+  llvm::BasicBlock *condbb{nullptr};
 
 public:
   WhileStatement(Expression *cond, Statement *stmt);
+  llvm::BasicBlock *genbb(const std::string &name = "");
   virtual std::string to_string() override;
-  virtual void gen() override {};
+  virtual void gen() override;
+  virtual void init() override;
 };
 
 } // namespace Compiler

@@ -90,7 +90,7 @@ int main(int argc, char **argv) {
   } catch (std::runtime_error &e) {
     std::cout << "[RUNTIME ERROR]" << e.what() << std::endl;
   } catch (std::string &e) {
-    std::cout << e << std::endl;
+    std::cout << "std string error:" << e << std::endl;
   }
   return 0;
 }
