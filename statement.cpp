@@ -4,9 +4,9 @@
 #include <llvm/IR/Value.h>
 
 #include "ast.hpp"
+#include "errors.hpp"
 #include "expressions.hpp"
-#include "statements.hpp"
-#include "traits.hpp"
+#include "statement.hpp"
 
 namespace Compiler {
 

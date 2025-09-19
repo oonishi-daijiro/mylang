@@ -1,18 +1,27 @@
 #pragma once
 
-#include "ast.hpp"
-#include "errors.hpp"
-#include "expressions.hpp"
-#include "traits.hpp"
-
+#include <initializer_list>
+#include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/Operator.h>
 #include <llvm/IR/Type.h>
 #include <llvm/IR/Value.h>
+#include <llvm/Support/Casting.h>
+
+#include "ast.hpp"
+#include "errors.hpp"
+#include "expressions.hpp"
+#include "type.hpp"
+#include "value.hpp"
 
 namespace Compiler {
 
-class Operator : public Expression {
-  using Expression::Expression;
+class Operator : public virtual Expression {
+public:
+  Operator(std::initializer_list<Expression *> initalizer) {
+    for (auto &&e : initalizer) {
+      appendChild(e);
+    }
+  }
   virtual std::string to_string() final;
   virtual std::string kind() = 0;
 };
@@ -36,7 +45,7 @@ protected:
 public:
   BinaryOperator(Expression *lv, Expression *rv);
   virtual void resolveType() final;
-  virtual std::string operationRetTypeName() = 0;
+  virtual Type resultType() = 0;
 };
 
 class UnaryOperator : public Operator {
@@ -45,8 +54,8 @@ protected:
 
 public:
   UnaryOperator(Expression *o) : Operator{o}, o{*o} {}
-  virtual llvm::Value *get() override;
-  virtual void resolveType() final override { type.resolve(o.type); };
+  virtual llvm::Value *get() override = 0;
+  virtual void resolveType() final override { type = o.type; };
 };
 
 class UnaryAssignOperator : public Operator {
@@ -62,7 +71,7 @@ public:
     }
   }
 
-  virtual void resolveType() { type.resolve(o->type); }
+  virtual void resolveType() { type = o->type; }
 };
 
 class MinusOperator final : public UnaryOperator {
@@ -87,7 +96,7 @@ class DecrementOperator final : public UnaryAssignOperator {
 
 class BooleanOperator : public BinaryOperator {
   using BinaryOperator::BinaryOperator;
-  virtual std::string operationRetTypeName() final override;
+  virtual Type resultType() final override;
 };
 
 class AddOperator final : public MagmaOperator {
@@ -148,6 +157,44 @@ class GeOperator final : public BooleanOperator {
   using BooleanOperator::BooleanOperator;
   virtual std::string kind() override;
   virtual llvm::Value *get() override;
+};
+
+class IndexingOperator : public virtual Operator, public virtual Substance {
+  Value &index;
+  Expression &arraylike;
+
+public:
+  IndexingOperator(Expression *arraylike, Expression *index)
+      : Operator{{arraylike, index}}, index{*index}, arraylike{*arraylike} {}
+  ~IndexingOperator() = default;
+
+  virtual std::string kind() override { return "[]"; }
+  virtual void set(Value &val) override {
+    auto ptr = arraylike.get();
+    auto elmTy = llvm::cast<llvm::PointerType>(ptr)->getArrayElementType();
+    auto zero = builder->getInt64(0);
+    auto elmptr = builder->CreateGEP(elmTy, ptr, {zero, index.get()});
+    builder->CreateStore(val.get(), elmptr);
+  };
+
+  virtual llvm::Value *get() override {
+    auto ptr = arraylike.get();
+    auto elmTy = llvm::cast<llvm::PointerType>(ptr)->getArrayElementType();
+    auto zero = builder->getInt64(0);
+    auto elmptr = builder->CreateGEP(elmTy, ptr, {zero, index.get()});
+    auto elm = builder->CreateLoad(elmTy, elmptr);
+    return elm;
+  }
+
+  virtual llvm::Value *ptr() override {
+    auto ptr = arraylike.get();
+    auto elmTy = llvm::cast<llvm::PointerType>(ptr)->getArrayElementType();
+    auto zero = builder->getInt64(0);
+    auto elmptr = builder->CreateGEP(elmTy, ptr, {zero, index.get()});
+    return elmptr;
+  }
+
+  virtual void resolveType() override {}
 };
 
 }; // namespace Compiler

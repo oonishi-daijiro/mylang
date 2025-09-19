@@ -1,10 +1,13 @@
 
-#include "operators.hpp"
-#include "traits.hpp"
+
 #include <llvm/IR/Value.h>
 
+#include "expressions.hpp"
+#include "operators.hpp"
+#include "type_traits.hpp"
+
 namespace Compiler {
-std::string BooleanOperator::operationRetTypeName() { return "boolean"; }
+Type BooleanOperator::resultType() { return Type::GetType("boolean"); }
 
 std::string AddOperator::kind() { return "+"; }
 std::string SubOperator::kind() { return "-"; }
@@ -21,14 +24,14 @@ std::string IncrementOperator::kind() { return "(...)++"; }
 std::string DecrementOperator::kind() { return "(...)--"; }
 
 MagmaOperator::MagmaOperator(Expression *lv, Expression *rv)
-    : Operator{lv, rv}, lv{*lv}, rv{*rv} {}
+    : Operator{{lv, rv}}, lv{*lv}, rv{*rv} {}
 
 void MagmaOperator::resolveType() {
   if (lv.type != rv.type) {
     throw TypeError(this->info, std::format("type mismatch: '{}' vs '{}'",
                                             lv.type.name(), rv.type.name()));
   } else {
-    type.resolve(lv.type.name());
+    this->type = lv.type;
   }
 };
 
@@ -40,7 +43,7 @@ void BinaryOperator::resolveType() {
     throw TypeError(this->info, std::format("type mismatch: '{}' vs '{}'",
                                             lv.type.name(), rv.type.name()));
   } else {
-    type.resolve(operationRetTypeName());
+    type = resultType();
   }
 }
 

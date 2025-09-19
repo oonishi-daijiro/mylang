@@ -1,17 +1,26 @@
 #pragma once
 
-#include "ast.hpp"
-#include "errors.hpp"
-#include "traits.hpp"
-
+#include <cstddef>
 #include <cstdint>
 #include <format>
+#include <initializer_list>
+#include <llvm/IR/DerivedTypes.h>
+#include <numeric>
+#include <sstream>
+#include <string>
+#include <vector>
+
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/Type.h>
 #include <llvm/IR/Value.h>
-#include <set>
-#include <string>
+
+#include "ast.hpp"
+#include "errors.hpp"
+#include "type.hpp"
+#include "type_traits.hpp"
+#include "utils.hpp"
+#include "value.hpp"
 
 namespace Compiler {
 
@@ -28,7 +37,13 @@ public:
   virtual std::string to_string() override { return "[***expression***]"; };
 };
 
-class DoubleExpr : public Expression {
+class Literal {
+public:
+  virtual ~Literal() = default;
+  virtual std::string value_str() = 0;
+};
+
+class DoubleExpr : public Expression, public Literal {
   double value;
 
 public:
@@ -37,9 +52,10 @@ public:
   virtual llvm::Value *get() override;
   virtual void resolveType() override;
   virtual std::string to_string() override;
+  virtual std::string value_str() override { return std::to_string(value); }
 };
 
-class IntegerExpr : public Expression {
+class IntegerExpr : public Expression, public Literal {
   int32_t value;
 
 public:
@@ -48,9 +64,11 @@ public:
   virtual llvm::Value *get() override;
   virtual void resolveType() override;
   virtual std::string to_string() override;
+
+  virtual std::string value_str() override { return std::to_string(value); }
 };
 
-class BooleanExpr final : public Expression {
+class BooleanExpr final : public Expression, public Literal {
   bool value;
 
 public:
@@ -58,9 +76,62 @@ public:
   virtual llvm::Value *get() override;
   virtual void resolveType() override;
   virtual std::string to_string() override;
+  virtual std::string value_str() override { return std::to_string(value); }
 };
 
-class StringExpr final : public Expression {
+class ArrayExpr final : public Expression, public Literal {
+  std::vector<Value *> elements{};
+  std::stringstream valstr{};
+  llvm::Value *head{nullptr};
+  
+  public:
+  ArrayExpr(std::vector<Expression *> &&initExpr);
+  Type elementTy;
+
+  virtual llvm::Value *get() override {
+    auto arraysize = builder->getInt64(elements.size());
+    auto arrayTy =
+        llvm::ArrayType::get(elementTy.getTypeInst(), elements.size());
+    head = builder->CreateAlloca(arrayTy, arraysize);
+    auto zero = builder->getInt64(0);
+
+    for (size_t i = 0; i < elements.size(); i++) {
+      auto index = builder->getInt64(i);
+      auto p = builder->CreateGEP(elementTy.getTypeInst(), head, {index});
+      builder->CreateStore(elements[i]->get(), p);
+    }
+    return head;
+  };
+
+  virtual void resolveType() override {
+    if (elements.size() > 0) {
+      bool isAllSameTy = true;
+      for (int i = 0; i < elements.size() - 1; i++) {
+        isAllSameTy &= elements[i]->type == elements[i + 1]->type;
+      }
+
+      if (!isAllSameTy) {
+        throw TypeError(this->info, "array element must all same type");
+      }
+      auto &ty = elements[0]->type;
+      elementTy = elements[0]->type;
+      auto arrayPointerTy = llvm::PointerType::get(elementTy.getTypeInst(), 0);
+      type = Type{std::format("@array[{}]", elements.size()), arrayPointerTy,
+                  new ArrayTyTrait{}};
+    } else {
+      throw TypeError(this->info,
+                      "array expression must be have 1 or more elements");
+    }
+  };
+
+  virtual std::string to_string() override {
+    return std::format("Array: {}:[{}]", type.name(), valstr.str());
+  };
+
+  virtual std::string value_str() override { return valstr.str(); }
+};
+
+class StringExpr final : public Expression, public Literal {
   std::string value;
 
 public:
@@ -68,11 +139,14 @@ public:
   virtual llvm::Value *get() override {};
   virtual std::string to_string() override {};
   virtual void resolveType() override {};
+  virtual std::string value_str() override {
+    return std::format("\"{}\"", value);
+  }
 };
 
-class Substance : public Expression {
+class Substance : public virtual Expression {
 public:
-  virtual llvm::Value *get() = 0;
+  virtual ~Substance() = default;
   virtual void set(Value &) = 0;
   virtual llvm::Value *ptr() = 0;
 };

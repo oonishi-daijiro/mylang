@@ -79,15 +79,16 @@ public:
   }
 
   template <size_t I, strexpr v>
-  bool operator==(string_enum_elm<I, v, strs...> &&rv) {
+  bool operator==(string_enum_elm<I, v, strs...> &&rv) const {
     return this->enumVal == I;
   }
 
-  bool operator==(const string_enum<strs...> &rv) {
+  bool operator==(const string_enum<strs...> &rv) const {
     return this->enumVal == rv.enumVal;
   }
 
-  template <size_t I, strexpr v> bool operator==(string_enum<strs...> &&rv) {
+  template <size_t I, strexpr v>
+  bool operator==(string_enum<strs...> &&rv) const {
     return this->enumVal == rv.enumVal;
   }
 

@@ -13,11 +13,11 @@ Token::Token(token_kind k, std::string &value, DebugInfo info)
 bool Token::operator==(token_kind k) const { return this->kind == k; }
 
 bool Tokennizer::isOperator(char o) {
-  return isIncluding({'+', '-', '*', '/', '=', '>', '<', '!'}, o);
+  return isIncluding({'+', '-', '*', '/', '=', '>', '<', '!', ','}, o);
 };
 
-bool Tokennizer::isParentheses(char p) {
-  return isIncluding({'(', ')', '{', '}'}, p);
+bool Tokennizer::isDelimiters(char p) {
+  return isIncluding({'(', ')', '{', '}', '[', ']'}, p);
 };
 
 Tokennizer::Tokennizer(std::string src) : reader{src}, source{src} {}
@@ -66,7 +66,6 @@ std::vector<Token> Tokennizer::tokenize() {
         if (reader + 1 == '-') {
           k = token_kind::of<"decrement">;
           ++reader;
-
         } else {
           k = token_kind::of<"sub">;
         }
@@ -103,10 +102,12 @@ std::vector<Token> Tokennizer::tokenize() {
           k = token_kind::of<"neq">;
           ++reader;
         }
+      } else if (c == ',') {
+        k = token_kind::of<"comma">;
       }
       emplaceNewToken(k);
       ++reader;
-    } else if (isParentheses(c)) {
+    } else if (isDelimiters(c)) {
       if (c == '(') {
         emplaceNewToken(token_kind::of<"left_paren">);
       } else if (c == ')') {
@@ -115,15 +116,18 @@ std::vector<Token> Tokennizer::tokenize() {
         emplaceNewToken(token_kind::of<"begin_block">);
       } else if (c == '}') {
         emplaceNewToken(token_kind::of<"end_block">);
+      } else if (c == '[') {
+        emplaceNewToken(token_kind::of<"left_square_bracket">);
+      } else if (c == ']') {
+        emplaceNewToken(token_kind::of<"right_square_bracket">);
       }
       ++reader;
-    } else if (std::isalpha(c)) {
+    } else if (std::isalpha(c) || c == '_') {
       do {
         valueBuffer += c;
         ++reader;
         reader >>= c;
-      } while (std::isalpha(c));
-
+      } while (std::isalpha(c) || c == '_' || std::isalnum(c));
       if (valueBuffer == "const") {
         emplaceNewToken(token_kind::of<"constdecl">);
       } else if (valueBuffer == "function") {

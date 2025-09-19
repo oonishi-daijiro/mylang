@@ -55,16 +55,13 @@ int main(int argc, char **argv) {
     std::cout << source << std::endl;
 
     // for (auto &&token : tokens) {
-    //   std::cout << token.kind.to_string() << " :" << token.value <<
-    //   std::endl;
+    //   std::cout << token.kind.to_string() << " : \"" << token.value << '"'
+    //             << std::endl;
     // }
 
     Compiler::Parser parser{std::move(tokens)};
 
     auto root = parser.parse(mainFunc);
-
-    std::cout << "===============  AST  ===============" << std::endl;
-    root.print();
 
     root.gen();
 

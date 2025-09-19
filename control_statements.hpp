@@ -1,8 +1,10 @@
-#include "ast.hpp"
-#include "errors.hpp"
-#include "expressions.hpp"
-#include "traits.hpp"
+
+#pragma once
+
 #include <llvm/IR/BasicBlock.h>
+
+#include "ast.hpp"
+#include "expressions.hpp"
 
 namespace Compiler {
 

@@ -5,6 +5,7 @@
 #include <deque>
 #include <format>
 #include <functional>
+#include <initializer_list>
 #include <llvm/ADT/STLFunctionalExtras.h>
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Function.h>
@@ -50,17 +51,11 @@ public:
   virtual ~Code() = default;
   Code() = default;
 
-  template <typename T>
-  bool isa()
-    requires(std::is_base_of_v<Code, T>)
-  {
+  template <typename T> bool isa() {
     auto ptr = dynamic_cast<T *>(this);
     return ptr != nullptr;
   };
-  template <typename T>
-  T *cast()
-    requires(std::is_base_of_v<Code, T>)
-  {
+  template <typename T> T *cast() {
     if (!isa<T>()) {
       throw std::runtime_error(
           std::format("{} is not {}", this->to_string(), typeid(T).name()));
@@ -103,6 +98,12 @@ public:
         ...)
   Node(Children &&...child) : info{(*curtok)->info} {
     (appendChild(child), ...);
+  }
+
+  Node(std::initializer_list<Node *> init) : info{(*curtok)->info} {
+    for (auto &&e : init) {
+      appendChild(e);
+    }
   }
 
   bool hasNoChild() { return children.empty(); }

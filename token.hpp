@@ -19,7 +19,8 @@ namespace Compiler {
 #define BUILTIN_TYPE "numeric", "char", "string", "boolean", "integer", "void"
 
 #define DELIMITER                                                              \
-  "left_paren", "right_paren", "semicolon", "begin_block", "end_block"
+  "left_paren", "right_paren", "semicolon", "begin_block", "end_block",        \
+      "left_square_bracket", "right_square_bracket", "comma"
 
 #define KEYWORD                                                                \
   "constdecl", "vardecl", "function", "return_stmt", "if_stmt",                \
@@ -57,7 +58,7 @@ private:
   }
 
   bool isOperator(char o);
-  bool isParentheses(char p);
+  bool isDelimiters(char p);
 
 public:
   Tokennizer() = delete;

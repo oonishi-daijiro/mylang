@@ -1,11 +1,10 @@
-#include "ast.hpp"
-#include "statements.hpp"
-#include "traits.hpp"
-#include <algorithm>
+#include <stack>
+
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Function.h>
-#include <stack>
-#include <stacktrace>
+
+#include "ast.hpp"
+#include "statement.hpp"
 
 namespace Compiler {
 
@@ -73,6 +72,9 @@ std::string Root::to_string() {
 void Root::gen() {
   if (rootNode != nullptr) {
     rootNode->walkAllChildlenDFPO([&](Node *node) { node->init(); });
+    std::cout << "===============  AST  ===============" << std::endl;
+    print();
+    std::cout << "===============  AST  ===============" << std::endl;
     rootNode->gen();
   }
 }

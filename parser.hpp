@@ -1,9 +1,12 @@
 #pragma once
 
+#include <stdexcept>
+#include <utility>
+#include <vector>
+
 #include "ast.hpp"
 #include "expressions.hpp"
 #include "token.hpp"
-
 namespace Compiler {
 class Parser {
 
@@ -16,16 +19,26 @@ class Parser {
   bool consume(token_kind k);
   bool expect(token_kind k) noexcept(false);
 
-  template <typename... T> bool match(T... k) {
-    bool matched = false;
-    token_kind toks[sizeof...(k)] = {k...};
-    for (size_t i = 1; i <= sizeof...(k); i++) {
-      matched &= (*(tokitr + i)).kind == toks[i];
+  template <typename S, typename... T> struct match_impl {
+    static inline bool match(token_iterator &itr, T &...) {
+      throw std::runtime_error("this match function cannot be call");
     }
-    if (matched) {
-      tokitr += sizeof...(k);
+  };
+
+  template <int... N, typename... T>
+  struct match_impl<std::index_sequence<N...>, T...> {
+    static inline bool match(token_iterator &itr, T &...k) {
+      return (((itr + N + 1)->kind == k) && ...);
     }
-    return matched;
+  };
+
+  template <typename... T> bool match(T &...k) {
+    auto val = match_impl<std::make_index_sequence<sizeof...(T)>, T...>::match(
+        tokitr, k...);
+    if (val) {
+      tokitr += sizeof...(T);
+    }
+    return val;
   };
 
   double stodnoe(auto &&) noexcept;
@@ -48,15 +61,19 @@ class Parser {
   // stmt     = (expr | if | ret | constdecl | vardecl | assign | funccall ) ";"
   //            | (cmp_stmt | for | while)
 
-  // constdecl = "const" symbol "=" expr
-  // vardecl   = "let" symbol "=" expr
-  // if       = "if" "(" expr ")" "{" cmp_stmt "}" (elif | else | ε)
-  // assign   = symbol "=" expr
-  // elif     = "else if" "(" expr ")" "{" cmp_stmt "}" (elif | else | ε)*
-  // else     = "else" "{" cmp_stmt "}"
-  // ret      = "return" epxr ";"
-  // for      = "for" "(" (vardecl|expr) ";" expr ";" expr ")" stmt
-  // while    = "while" "(" expr ")" stmt
+  // constdecl  = "const" symbol "=" expr
+  // vardecl    = "let" symbol "=" expr
+
+  // if         = "if" "(" expr ")" "{" cmp_stmt "}" (elif | else | ε)
+  // assign     = symbol "=" expr
+  // elif       = "else if" "(" expr ")" "{" cmp_stmt "}" (elif | else | ε)*
+  // else       = "else" "{" cmp_stmt "}"
+  // ret        = "return" epxr ";"
+  // for        = "for" "(" (vardecl|expr) ";" expr ";" expr ")" stmt
+  // while      = "while" "(" expr ")" stmt
+
+  // array_literal  = "[" expr ("," expr | ε)* "]"
+  // array_indexing = (array_literal | symbol) "[" expr "]"
 
   // expr       = equality
   // equality   = relational ("==" relational | "!=" relational)*
@@ -64,7 +81,12 @@ class Parser {
   // add        = mul ("+" mul | "-" mul)*
   // mul        = unary ("*" unary | "/" unary)*
   // unary      = (("+" | "-")? primary)| primary++ | primary--
-  // primary    = (num | symbol | funccall) | "(" expr ")"
+  // primary    = (literal | symbol | funccall | array_indexing) | "(" expr ")"
+
+  // literal    = #doule_literal | #integer_literal | #string_literal |
+  // array_literal
+
+  // # above means token kind
 
   Block *parseBlock(std::string name = "", llvm::Function *parent = nullptr);
 
@@ -87,6 +109,8 @@ class Parser {
   Expression *parseMul();
   Expression *parseUnary();
   Expression *parsePrimary();
+  Expression *parseArrayLiteral();
+  Expression *parseArrayIndexing();
 
 public:
   Parser() = delete;

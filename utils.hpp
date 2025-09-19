@@ -1,6 +1,7 @@
 #pragma once
 
 #include <format>
+#include <iterator>
 #include <llvm/ExecutionEngine/Orc/Core.h>
 #include <llvm/ExecutionEngine/Orc/LLJIT.h>
 #include <llvm/ExecutionEngine/Orc/ThreadSafeModule.h>
@@ -128,5 +129,10 @@ inline std::string lltos(auto *inst) {
   }
 }
 
+template <typename T>
+concept NOPTR_NOREF = requires() {
+  !std::is_pointer_v<T>;
+  !std::is_reference_v<T>;
+};
 
 } // namespace util

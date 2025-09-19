@@ -1,4 +1,5 @@
 #pragma once
+#include <cctype>
 #include <cstddef>
 #include <cstring>
 #include <functional>
@@ -14,7 +15,7 @@ protected:
   int cur = 0;
   const std::function<bool(T)> isSpaceFn;
   using isSpaceFunc_t = std::function<bool(T)>;
-  static inline bool defaultIsSpaceFunc(T v) { return std::isspace(v); }
+  static inline bool defaultIsSpaceFunc(T v) { return std::isblank(v); }
 
 public:
   using character_t = T;

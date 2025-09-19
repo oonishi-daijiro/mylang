@@ -1,7 +1,5 @@
 {
-  let hoge = 10;
-  let piyo = 100;
-  // while (hoge != 10) {
-  //   piyo = 200;
-  // }
+  let some = [1, 2, 3];
+  let e = some[0];
+  return e;
 }
