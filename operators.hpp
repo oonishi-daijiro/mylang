@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <initializer_list>
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/Operator.h>
@@ -10,7 +11,9 @@
 #include "ast.hpp"
 #include "errors.hpp"
 #include "expressions.hpp"
+#include "kind.hpp"
 #include "type.hpp"
+#include "type_traits.hpp"
 #include "value.hpp"
 
 namespace Compiler {
@@ -160,41 +163,18 @@ class GeOperator final : public BooleanOperator {
 };
 
 class IndexingOperator : public virtual Operator, public virtual Substance {
-  Value &index;
+  Expression &index;
   Expression &arraylike;
 
 public:
-  IndexingOperator(Expression *arraylike, Expression *index)
-      : Operator{{arraylike, index}}, index{*index}, arraylike{*arraylike} {}
+  IndexingOperator(Expression *arraylike, Expression *index);
   ~IndexingOperator() = default;
 
   virtual std::string kind() override { return "[]"; }
-  virtual void set(Value &val) override {
-    auto ptr = arraylike.get();
-    auto elmTy = llvm::cast<llvm::PointerType>(ptr)->getArrayElementType();
-    auto zero = builder->getInt64(0);
-    auto elmptr = builder->CreateGEP(elmTy, ptr, {zero, index.get()});
-    builder->CreateStore(val.get(), elmptr);
-  };
-
-  virtual llvm::Value *get() override {
-    auto ptr = arraylike.get();
-    auto elmTy = llvm::cast<llvm::PointerType>(ptr)->getArrayElementType();
-    auto zero = builder->getInt64(0);
-    auto elmptr = builder->CreateGEP(elmTy, ptr, {zero, index.get()});
-    auto elm = builder->CreateLoad(elmTy, elmptr);
-    return elm;
-  }
-
-  virtual llvm::Value *ptr() override {
-    auto ptr = arraylike.get();
-    auto elmTy = llvm::cast<llvm::PointerType>(ptr)->getArrayElementType();
-    auto zero = builder->getInt64(0);
-    auto elmptr = builder->CreateGEP(elmTy, ptr, {zero, index.get()});
-    return elmptr;
-  }
-
-  virtual void resolveType() override {}
+  virtual void set(Value &val) override;
+  virtual llvm::Value *get() override;
+  virtual llvm::Value *ptr() override;
+  virtual void resolveType() override;
 };
 
 }; // namespace Compiler

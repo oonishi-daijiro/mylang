@@ -36,9 +36,6 @@ Statement *Parser::parseStatement() {
   } else if (consume(token_kind::of<"return_stmt">)) {
     stmt = parseReturn();
     expect(token_kind::of<"semicolon">);
-  } else if (match(token_kind::of<"symbol">, token_kind::of<"assign">)) {
-    stmt = parseAssign();
-    expect(token_kind::of<"semicolon">);
   } else if (consume(token_kind::of<"if_stmt">)) {
     stmt = parseIfStmt();
   } else if (consume(token_kind::of<"begin_block">)) {
@@ -55,7 +52,13 @@ Statement *Parser::parseStatement() {
     stmt = new BreakStatement();
     expect(token_kind::of<"semicolon">);
   } else {
-    stmt = parseExpression();
+    auto expr = parseExpression();
+    if (consume(token_kind::of<"assign">)) {
+      auto rv = parseExpression();
+      stmt = new Assign(expr, rv);
+    } else {
+      stmt = expr;
+    }
     expect(token_kind::of<"semicolon">);
   }
   return stmt;
@@ -126,8 +129,9 @@ Statement *Parser::parseMutableVarDecl() {
 Statement *Parser::parseReturn() { return new Ret(parseExpression()); }
 
 Statement *Parser::parseAssign() {
-  auto symbol = tokitr - 1;
-  auto lv = new Variable(symbol->value);
+  auto lv = parseExpression();
+  std::cout << lv->to_string() << std::endl;
+  expect(token_kind::of<"assign">);
   auto rv = parseExpression();
   auto assign = new Assign(lv, rv);
   return assign;
@@ -248,7 +252,7 @@ Expression *Parser::parsePrimary() {
     primary = parseArrayLiteral();
   } else {
     std::string err =
-        std::format("[unexpected token] primary expression but {}",
+        std::format("[unexpected token] expected primary expression but {}",
                     tokitr->kind.to_string());
     throw SyntaxError(err);
   }

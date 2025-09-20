@@ -9,14 +9,16 @@
 #include <utility>
 
 #include "ast.hpp"
-#include "kind.hpp"
 #include "utils.hpp"
 
 namespace Compiler {
+class Kind;
 
 class TypeTrait : public LLVMBuilder {
+  static inline std::map<std::string, std::shared_ptr<TypeTrait>> traitset;
 
 public:
+  TypeTrait() = default;
   virtual ~TypeTrait() = default;
   virtual std::string name() = 0;
 
@@ -32,6 +34,22 @@ public:
       return ptr;
     }
   }
+
+  template <typename T>
+  static inline TypeTrait *New()
+    requires(std::is_base_of_v<TypeTrait, T>)
+  {
+    auto tr = new T{};
+    if (!traitset.contains(tr->name())) {
+      traitset.emplace(std::piecewise_construct,
+                       std::forward_as_tuple(tr->name()),
+                       std::forward_as_tuple(tr));
+      return tr;
+    } else {
+      delete tr;
+      return nullptr;
+    }
+  }
 };
 
 class Type final {
@@ -41,86 +59,35 @@ class Type final {
   Kind *k{nullptr};
 
   static inline std::map<std::string, Type> typeset{};
-  static inline std::vector<std::shared_ptr<TypeTrait>> traitset{};
+
+  friend class Kind;
+  void setKind(Kind *kind);
 
 public:
-  static const Type &GetType(const std::string &name) {
-    if (name == "unresolved_type") {
-      throw std::runtime_error("cannot get type of unresolved type");
-    }
+  static const Type &GetType(const std::string &name);
 
-    if (typeset.count(name)) {
-      return typeset.at(name);
-    } else {
-      throw std::runtime_error(
-          std::format("type {} is no defined as builtin type", name));
-    }
-  }
-  template <typename T>
-  static inline void DefineNewType(const std::string &name, llvm::Type *inst)
-    requires(std::is_base_of_v<TypeTrait, T>)
-  {
-    if (typeset.count(name)) {
-      throw std::runtime_error(std::format("type {} is already defined", name));
-    } else {
-      auto trait = new T{};
-      traitset.emplace_back(trait);
+  static void DefineNewPrimitiveType(const std::string &name, llvm::Type *inst,
+                                     TypeTrait *tr);
 
-      typeset.emplace(
-          std::piecewise_construct, std::forward_as_tuple(name),
-          std::forward_as_tuple(std::move(Type{name, inst, trait})));
-    }
-  }
+  static inline void RegisterType(const Type &t);
 
-  static inline void RegisterType(const Type &t) {
-    if (typeset.count(t.tname)) {
-      throw std::runtime_error(
-          std::format("type {} is already defined", t.tname));
-    } else if (t.tname == "unresolved_type") {
-      throw std::runtime_error("cannot register unresolved type");
-    } else {
-      typeset.emplace(std::piecewise_construct, std::forward_as_tuple(t.tname),
-                      std::forward_as_tuple(t.tname, t.inst, t.tr));
-    }
-  }
-
+  Type(const std::string &name, llvm::Type *inst, TypeTrait *tr, Kind *k);
+  Type(const std::string &name);
   Type(const Type &) = default;
   Type(Type &&) = default;
-  Type() {};
+  ~Type() = default;
+  Type();
 
-  Type(const std::string &name, llvm::Type *inst, TypeTrait *tr)
-      : inst{inst}, tname{name}, tr{tr} {}
+  Type &operator=(const std::string &name);
+  Type &operator=(const Type &r);
 
-  Type(const std::string &name) {
-    auto &&t = GetType(name);
-    *this = t;
-  }
+  bool operator==(const Type &r) const;
+  bool operator!=(const Type &r) const;
 
-  Type &operator=(const std::string &name) {
-    *this = GetType(name);
-    return *this;
-  }
-
-  bool operator==(const Type &r) const { return this->tname == r.tname; };
-  bool operator!=(const Type &r) const { return !(*this == r); }
-  const std::string &name() const { return tname; }
-
-  Type &operator=(const Type &r) {
-    if (this != &r) {
-      this->inst = r.inst;
-      this->tname = r.tname;
-      this->tr = r.tr;
-    }
-    return *this;
-  };
-
-  TypeTrait *trait() const { return tr; }
-  llvm::Type *getTypeInst() const {
-    if (tname == "unresolved_type") {
-      throw std::runtime_error("cannot resolve type");
-    }
-    return inst;
-  }
+  const std::string &name() const;
+  TypeTrait *trait() const;
+  llvm::Type *getTypeInst() const;
+  Kind *kind();
 };
 
 } // namespace Compiler

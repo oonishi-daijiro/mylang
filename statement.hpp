@@ -71,14 +71,16 @@ public:
 };
 
 class Assign final : public Statement {
-  Substance &lv;
+  Expression &lv;
   Expression &rv;
+  Substance *slv{nullptr};
 
 public:
-  Assign(Substance *lv, Expression *rv);
+  Assign(Expression *lv, Expression *rv);
 
   virtual void gen() override;
   virtual std::string to_string() override;
+  virtual void init() override;
 };
 
 } // namespace Compiler

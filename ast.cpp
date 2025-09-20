@@ -74,7 +74,6 @@ void Root::gen() {
     rootNode->walkAllChildlenDFPO([&](Node *node) { node->init(); });
     std::cout << "===============  AST  ===============" << std::endl;
     print();
-    std::cout << "===============  AST  ===============" << std::endl;
     rootNode->gen();
   }
 }

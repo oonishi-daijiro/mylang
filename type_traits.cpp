@@ -1,5 +1,12 @@
 #include "type_traits.hpp"
+#include "errors.hpp"
+#include "kind.hpp"
+#include "utils.hpp"
 #include "value.hpp"
+#include <llvm/ADT/ArrayRef.h>
+#include <llvm/IR/DerivedTypes.h>
+#include <llvm/IR/Value.h>
+#include <stdexcept>
 
 namespace Compiler {
 
@@ -115,4 +122,14 @@ llvm::Value *BooleanTyTrait::eq(Value &lv, Value &rv) {
 llvm::Value *BooleanTyTrait::ne(Value &lv, Value &rv) {
   return builder->CreateICmpNE(lv.get(), rv.get());
 }
+
+llvm::Value *ArrayTyTrait::at(Value &arraylike, Value &idx) {
+  auto arraykind = arraylike.type.kind()->cast<ArrayKind>();
+  auto ptr = arraylike.get();
+  auto arrayTy = llvm::ArrayType::get(arraykind->element().getTypeInst(),
+                                      arraykind->size());
+  auto zero = builder->getInt64(0);
+  auto elmptr = builder->CreateGEP(arrayTy, ptr, {zero, idx.get()});
+  return elmptr;
+};
 } // namespace Compiler

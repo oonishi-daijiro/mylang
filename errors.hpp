@@ -34,6 +34,12 @@ public:
       : ParseError{info, message} {}
 };
 
+class RangeError : public Error {
+public:
+  RangeError(const DebugInfo &info, const std::string &message)
+      : Error{info, message} {}
+};
+
 class SymbolError : public ParseError {
 public:
   using ParseError::ParseError;

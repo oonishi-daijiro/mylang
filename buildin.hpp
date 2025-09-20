@@ -15,15 +15,21 @@ using namespace Compiler;
 class BuiltinTypes : public Code {
 public:
   static inline void define() {
-    Type::DefineNewType<DoubleTyTrait>("double",
-                                       llvm::Type::getDoubleTy(*context));
-    Type::DefineNewType<IntegerTyTrait>("integer",
-                                        llvm::Type::getInt32Ty(*context));
-    Type::DefineNewType<BooleanTyTrait>("boolean",
-                                        llvm::IntegerType::get(*context, 1));
-    Type::DefineNewType<AnyTrait>("void", llvm::Type::getVoidTy(*context));
-    Type::DefineNewType<AnyTrait>("char", llvm::IntegerType::get(*context, 8));
+    Type::DefineNewPrimitiveType("double", llvm::Type::getDoubleTy(*context),
+                                 TypeTrait::New<DoubleTyTrait>());
+    Type::DefineNewPrimitiveType("integer", llvm::Type::getInt32Ty(*context),
+                                 TypeTrait::New<IntegerTyTrait>());
+    Type::DefineNewPrimitiveType("boolean", llvm::IntegerType::get(*context, 1),
+                                 TypeTrait::New<BooleanTyTrait>());
 
+    auto any = TypeTrait::New<AnyTrait>();
+    Type::DefineNewPrimitiveType("void", llvm::Type::getVoidTy(*context), any);
+    Type::DefineNewPrimitiveType("char", llvm::IntegerType::get(*context, 8),
+                                 any);
+
+    // Kind::DefineNewKind<ArrayKind>("array");
+    // Kind::DefineNewKind<PointerKind>("pointer");
+    // Kind::DefineNewKind<PrimitiveKind>("primitive");
   }
   BuiltinTypes() = delete;
 };

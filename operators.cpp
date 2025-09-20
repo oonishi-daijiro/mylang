@@ -117,4 +117,51 @@ llvm::Value *DecrementOperator::get() {
   builder->CreateStore(trait->sub(*o, unit), o->ptr());
   return prev;
 }
+
+// indexing operator
+
+IndexingOperator::IndexingOperator(Expression *arraylike, Expression *index)
+    : Operator{{arraylike, index}}, index{*index}, arraylike{*arraylike} {}
+
+std::string kind() { return "[]"; }
+
+void IndexingOperator::set(Value &val) {
+  auto ptr = this->ptr();
+  builder->CreateStore(val.get(), ptr);
+};
+
+llvm::Value *IndexingOperator::get() {
+  auto ptr = this->ptr();
+  auto elmTy = arraylike.type.kind()->cast<ArrayKind>()->element();
+  auto elm = builder->CreateLoad(elmTy.getTypeInst(), ptr);
+  return elm;
+}
+
+llvm::Value *IndexingOperator::ptr() {
+  auto indexable = arraylike.type.trait()->except<Indexable>();
+  if (index.isa<ConstantEval<int32_t>>()) {
+    auto idx = index.cast<ConstantEval<int32_t>>()->val();
+    auto arraysize = arraylike.type.kind()->cast<ArrayKind>()->size();
+    if (idx >= arraysize) {
+      throw RangeError(
+          this->info,
+          std::format("index out of range. array size is {} but index is {}",
+                      arraysize, idx));
+    }
+  }
+  auto ptr = indexable->at(arraylike, index);
+  return ptr;
+}
+void IndexingOperator::resolveType() {
+
+  if (!arraylike.type.kind()->isa<ArrayKind>()) {
+    throw TypeError(this->info,
+                    std::format("operand type {} must be array kind but {}",
+                                arraylike.type.name(),
+                                arraylike.type.kind()->name()));
+  } else {
+    type = arraylike.type.kind()->cast<ArrayKind>()->element();
+  }
+}
+
 }; // namespace Compiler

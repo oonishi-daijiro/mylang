@@ -17,6 +17,7 @@
 
 #include "ast.hpp"
 #include "errors.hpp"
+#include "kind.hpp"
 #include "type.hpp"
 #include "type_traits.hpp"
 #include "utils.hpp"
@@ -43,7 +44,19 @@ public:
   virtual std::string value_str() = 0;
 };
 
-class DoubleExpr : public Expression, public Literal {
+template <typename T> class ConstantEval {
+private:
+  T value;
+
+public:
+  virtual ~ConstantEval() = default;
+  ConstantEval(T val) : value{val} {};
+  virtual T &val() final { return value; }
+};
+
+class DoubleExpr : public Expression,
+                   public ConstantEval<double>,
+                   public Literal {
   double value;
 
 public:
@@ -55,7 +68,9 @@ public:
   virtual std::string value_str() override { return std::to_string(value); }
 };
 
-class IntegerExpr : public Expression, public Literal {
+class IntegerExpr : public Expression,
+                    public ConstantEval<int32_t>,
+                    public Literal {
   int32_t value;
 
 public:
@@ -68,7 +83,9 @@ public:
   virtual std::string value_str() override { return std::to_string(value); }
 };
 
-class BooleanExpr final : public Expression, public Literal {
+class BooleanExpr final : public Expression,
+                          public ConstantEval<bool>,
+                          public Literal {
   bool value;
 
 public:
@@ -79,63 +96,25 @@ public:
   virtual std::string value_str() override { return std::to_string(value); }
 };
 
-class ArrayExpr final : public Expression, public Literal {
+class ArrayExpr final : public Expression {
   std::vector<Value *> elements{};
   std::stringstream valstr{};
   llvm::Value *head{nullptr};
-  
-  public:
+
+public:
   ArrayExpr(std::vector<Expression *> &&initExpr);
-  Type elementTy;
-
-  virtual llvm::Value *get() override {
-    auto arraysize = builder->getInt64(elements.size());
-    auto arrayTy =
-        llvm::ArrayType::get(elementTy.getTypeInst(), elements.size());
-    head = builder->CreateAlloca(arrayTy, arraysize);
-    auto zero = builder->getInt64(0);
-
-    for (size_t i = 0; i < elements.size(); i++) {
-      auto index = builder->getInt64(i);
-      auto p = builder->CreateGEP(elementTy.getTypeInst(), head, {index});
-      builder->CreateStore(elements[i]->get(), p);
-    }
-    return head;
-  };
-
-  virtual void resolveType() override {
-    if (elements.size() > 0) {
-      bool isAllSameTy = true;
-      for (int i = 0; i < elements.size() - 1; i++) {
-        isAllSameTy &= elements[i]->type == elements[i + 1]->type;
-      }
-
-      if (!isAllSameTy) {
-        throw TypeError(this->info, "array element must all same type");
-      }
-      auto &ty = elements[0]->type;
-      elementTy = elements[0]->type;
-      auto arrayPointerTy = llvm::PointerType::get(elementTy.getTypeInst(), 0);
-      type = Type{std::format("@array[{}]", elements.size()), arrayPointerTy,
-                  new ArrayTyTrait{}};
-    } else {
-      throw TypeError(this->info,
-                      "array expression must be have 1 or more elements");
-    }
-  };
-
-  virtual std::string to_string() override {
-    return std::format("Array: {}:[{}]", type.name(), valstr.str());
-  };
-
-  virtual std::string value_str() override { return valstr.str(); }
+  virtual llvm::Value *get() override;
+  virtual void resolveType() override;
+  virtual std::string to_string() override;
 };
 
-class StringExpr final : public Expression, public Literal {
+class StringExpr final : public Expression,
+                         public ConstantEval<std::string>,
+                         public Literal {
   std::string value;
 
 public:
-  StringExpr(const std::string &str) : value{str} {}
+  StringExpr(const std::string &str) : ConstantEval<std::string>{str} {}
   virtual llvm::Value *get() override {};
   virtual std::string to_string() override {};
   virtual void resolveType() override {};

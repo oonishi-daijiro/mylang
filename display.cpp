@@ -24,6 +24,10 @@ std::string BooleanExpr::to_string() {
   return std::format("[{} : {}]", type.name(), (value ? "true" : "false"));
 }
 
+std::string ArrayExpr::to_string() {
+  return std::format("[Array: {}:[{}]]", type.name(), valstr.str());
+}
+
 std::string Variable::to_string() {
   return std::format("[MutableVariable:\"{}\" : {}]", name, type.name());
 }

@@ -24,7 +24,7 @@ void MutableVarDeclaration::gen() { var->set(initVal); }
 
 // assign
 
-Assign::Assign(Substance *lv, Expression *rv)
+Assign::Assign(Expression *lv, Expression *rv)
     : lv{*lv}, rv{*rv}, Statement{lv, rv} {};
 
 void Assign::gen() {
@@ -32,9 +32,17 @@ void Assign::gen() {
     throw TypeError(this->info, std::format("type missmatching {} vs {}",
                                             lv.type.name(), rv.type.name()));
   }
-  lv.set(rv);
+  slv->set(rv);
 }
 
+void Assign::init() {
+  if (!lv.isa<Substance>()) {
+    throw SyntaxError(info, std::format("cannot assign value to rvalue of {}",
+                                        lv.to_string()));
+  } else {
+    slv = lv.cast<Substance>();
+  }
+}
 // return
 Ret::Ret(Expression *expr) : retVal(*expr), Statement{expr} {};
 void Ret::ret2allocaPtr(llvm::AllocaInst *ptr) { retPtr = ptr; }

@@ -51,6 +51,8 @@ public:
 };
 
 class Indexable : virtual public TypeTrait {
+public:
+  static inline std::string name{"Indexable"};
   virtual llvm::Value *at(Value &arraylike, Value &idx) = 0;
 };
 
@@ -108,20 +110,17 @@ public:
 };
 
 class BooleanTyTrait : virtual public Boolean {
+public:
   virtual std::string name() override { return "BooleanTyTrait"; }
   virtual llvm::Value *eq(Value &lv, Value &rv) override;
   virtual llvm::Value *ne(Value &lv, Value &rv) override;
 };
 
 class ArrayTyTrait : virtual public Indexable {
+public:
   virtual std::string name() override { return "ArrayTyTrait"; }
 
-  virtual llvm::Value *at(Value &arraylike, Value &idx) override {
-    auto ptr = arraylike.get();
-    auto elmptr =
-        builder->CreateGEP(arraylike.type.getTypeInst(), ptr, {0, idx.get()});
-    return elmptr;
-  };
+  virtual llvm::Value *at(Value &arraylike, Value &idx) override;
 };
 
 } // namespace Compiler

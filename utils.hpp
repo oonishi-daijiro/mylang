@@ -61,6 +61,7 @@ inline void printErrorSourceLine(std::string &source, Compiler::Error &error) {
       indentLen = 0;
     }
   }
+  std::cout << std::endl;
   std::cout << error.what() << '\n';
   std::cout << "=============== COMPILE ERROR AT ============" << std::endl;
   std::cout << "  |" << std::endl;
