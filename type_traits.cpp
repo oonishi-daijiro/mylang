@@ -1,6 +1,7 @@
 #include "type_traits.hpp"
 #include "errors.hpp"
 #include "kind.hpp"
+#include "type.hpp"
 #include "utils.hpp"
 #include "value.hpp"
 #include <llvm/ADT/ArrayRef.h>
@@ -102,6 +103,7 @@ llvm::Value *IntegerTyTrait::eq(Value &lv, Value &rv) {
 llvm::Value *IntegerTyTrait::ne(Value &lv, Value &rv) {
   return builder->CreateICmpNE(lv.get(), rv.get());
 }
+
 llvm::Value *IntegerTyTrait::lt(Value &lv, Value &rv) {
   return builder->CreateICmpSLT(lv.get(), rv.get());
 }
@@ -132,4 +134,27 @@ llvm::Value *ArrayTyTrait::at(Value &arraylike, Value &idx) {
   auto elmptr = builder->CreateGEP(arrayTy, ptr, {zero, idx.get()});
   return elmptr;
 };
+
+// string type trait
+
+llvm::Value *StringTyTrait::at(Value &arraylike, Value &idx) {
+  auto arraykind = arraylike.type.kind()->cast<ArrayKind>();
+  auto ptr = arraylike.get();
+  auto charTy = Type::GetType("char").getTypeInst();
+  auto arrayTy = llvm::ArrayType::get(charTy, arraykind->size());
+  auto zero = builder->getInt64(0);
+  auto elmptr = builder->CreateGEP(arrayTy, ptr, {zero, idx.get()});
+  return elmptr;
+}
+
+// character type trait
+
+llvm::Value *CharacterTyTrait::eq(Value &lv, Value &rv) {
+  return builder->CreateICmpEQ(lv.get(), rv.get());
+}
+
+llvm::Value *CharacterTyTrait::ne(Value &lv, Value &rv) {
+  return builder->CreateICmpNE(lv.get(), rv.get());
+}
+
 } // namespace Compiler

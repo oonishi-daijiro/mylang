@@ -177,4 +177,8 @@ public:
   virtual void resolveType() override;
 };
 
+class CallOperator : public Operator {
+  
+};
+
 }; // namespace Compiler

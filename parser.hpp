@@ -5,8 +5,11 @@
 #include <vector>
 
 #include "ast.hpp"
+#include "block.hpp"
 #include "expressions.hpp"
+#include "function.hpp"
 #include "token.hpp"
+
 namespace Compiler {
 class Parser {
 
@@ -47,9 +50,11 @@ class Parser {
 
   // symbol   = @regexp: ^[a-zA-Z_][a-zA-Z0-9_]*$
 
-  // function = symbol "(" argdef ")" block
-  // argdef   = (symbol adtail* | ε)
-  // adtail   = "," symbol
+  // function = "function" symbol "(" (arg | ε) ")" ((":" type_specifier) | ε)
+  //             block
+
+  // arg      = (symbol ":" type_specifier arg_tail)
+  // arg_tail = ("," arg) | ε
 
   // funcarg  = (expr argtail*| ε)
   // argtail  = "," expr
@@ -85,10 +90,11 @@ class Parser {
 
   // literal    = #doule_literal | #integer_literal | #string_literal |
   // array_literal
-
   // # above means token kind
+  Program *parseProgram();
 
-  Block *parseBlock(std::string name = "", llvm::Function *parent = nullptr);
+  Function *parseFunction();
+  Block *parseBlock();
 
   Statement *parseStatement();
 
@@ -116,6 +122,6 @@ public:
   Parser() = delete;
   Parser(std::vector<Token> &&tokens);
 
-  Root parse(llvm::Function *mainfunc);
+  Root parse();
 };
 } // namespace Compiler

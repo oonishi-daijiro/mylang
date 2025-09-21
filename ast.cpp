@@ -1,3 +1,5 @@
+#include <functional>
+#include <queue>
 #include <stack>
 
 #include <llvm/IR/BasicBlock.h>
@@ -41,6 +43,26 @@ void Node::walkAllChildlenDFPO(std::function<void(Node *)> callback) {
   }
 }
 
+void Node::walkAllChildlenBF(std::function<void(Node *)> callback) {
+  std::queue<Node *> q{};
+  std::set<Node *> v{};
+
+  v.emplace(this);
+  q.push(this);
+
+  while (!q.empty()) {
+    auto n = q.front();
+    q.pop();
+    callback(n);
+    for (auto &&child : n->children) {
+      if (v.contains(child)) {
+        v.emplace(child);
+        q.push(child);
+      }
+    }
+  }
+}
+
 void Root::printImpl(int depth, Node *node, std::stringstream &ss) {
   for (int i = 0; i < depth; i++) {
     std::cout << "  |";
@@ -71,7 +93,11 @@ std::string Root::to_string() {
 
 void Root::gen() {
   if (rootNode != nullptr) {
-    rootNode->walkAllChildlenDFPO([&](Node *node) { node->init(); });
+    rootNode->walkAllChildlenDFPO([](Node *node) { node->init(); });
+    rootNode->walkAllChildlenBF([](Node *node) { node->resolveScope(); });
+    rootNode->walkAllChildlenDFPO([](Node *node) { node->resolveSymbol(); });
+    rootNode->walkAllChildlenDFPO([](Node *node) { node->resolveType(); });
+
     std::cout << "===============  AST  ===============" << std::endl;
     print();
     rootNode->gen();
@@ -107,70 +133,5 @@ void LLVMBuilder::init(contextptr_t ctx, moduleptr_t md) {
 };
 
 Code::moduleptr_t LLVMBuilder::release() { return std::move(llvmModule); }
-
-// block
-
-void Block::gen() {
-  auto bb = llvm::BasicBlock::Create(*context, name, parentFunc);
-  builder->SetInsertPoint(bb);
-
-  const Type *retType = nullptr;
-
-  walkAllChildlenDFPO([&](Node *n) {
-    if (n->isa<Ret>()) {
-      auto ret = n->cast<Ret>();
-      if (retType != nullptr && ret->returnType() != *retType) {
-        throw TypeError(ret->info,
-                        std::format("return type missmatching {} vs {}",
-                                    retType->name(), ret->returnType().name()));
-      } else {
-        retType = &ret->returnType();
-      }
-    }
-  });
-
-  llvm::AllocaInst *retptr = nullptr;
-  llvm::Type *retTypeInst = nullptr;
-
-  if (retType != nullptr) {
-    retTypeInst = retType->getTypeInst();
-    retptr = builder->CreateAlloca(retTypeInst, nullptr, "ret");
-  }
-
-  auto retbb = llvm::BasicBlock::Create(*context, "return");
-
-  walkAllChildlenDFPO([&](Node *n) {
-    if (n->isa<MutableVarDeclaration>()) {
-      n->cast<MutableVarDeclaration>()->hosting();
-    } else if (n->isa<Ret>()) {
-      n->cast<Ret>()->ret2allocaPtr(retptr);
-      n->cast<Ret>()->ret2allocaRetBB(retbb);
-    }
-  });
-
-  cmpStmt.gen();
-
-  walkAllChildlenDFPO([&](Node *n) {
-    if (n->isa<Ret>()) {
-      n->cast<Ret>()->ret2alloca();
-    }
-  });
-
-  auto origin = builder->GetInsertBlock();
-  retbb->insertInto(parentFunc);
-
-  if (retptr != nullptr && retTypeInst != nullptr) {
-    builder->SetInsertPoint(retbb);
-    auto retv = builder->CreateLoad(retTypeInst, retptr);
-    builder->CreateRet(retv);
-
-  } else {
-    builder->SetInsertPoint(origin);
-    builder->CreateBr(retbb);
-    builder->SetInsertPoint(retbb);
-    builder->CreateRet(nullptr);
-  }
-  builder->SetInsertPoint(origin);
-}
 
 } // namespace Compiler

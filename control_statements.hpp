@@ -5,6 +5,7 @@
 
 #include "ast.hpp"
 #include "expressions.hpp"
+#include "scope.hpp"
 
 namespace Compiler {
 

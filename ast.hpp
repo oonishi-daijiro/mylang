@@ -67,14 +67,14 @@ public:
   virtual std::string to_string() = 0;
 };
 
-template <typename T, typename P>
-concept ptrof = requires() {
-  !std::is_pointer_v<T>;
-  std::is_pointer_v<P>;
-  std::is_same_v<T *, P>;
+class Semantic : public Code {
+protected:
+  virtual void resolveType() {}
+  virtual void resolveSymbol() {}
+  virtual void resolveScope() {}
 };
 
-class Node : public Code {
+class Node : public Semantic {
   friend class Root;
   virtual void unlinkFirstChild() final;
   virtual Node *getFirstChild() final;
@@ -108,6 +108,7 @@ public:
 
   bool hasNoChild() { return children.empty(); }
   virtual void walkAllChildlenDFPO(std::function<void(Node *)>) final;
+  virtual void walkAllChildlenBF(std::function<void(Node *)>) final;
   virtual void init() {}
 
   static inline void init(tokitr_t &itr) { curtok = &itr; }
@@ -120,21 +121,6 @@ class Program : public Node {
 class Statement : public Node {
 public:
   using Node::Node;
-};
-
-// Block(s)
-class Block : public Node {
-  Statement &cmpStmt;
-  llvm::Function *parentFunc;
-  std::string name;
-
-public:
-  Block(Statement *cmpStmt, const std::string &name = "",
-        llvm::Function *parentFunc = nullptr)
-      : Node{cmpStmt}, cmpStmt{*cmpStmt}, parentFunc{parentFunc}, name{name} {}
-
-  virtual void gen() override;
-  virtual std::string to_string() override;
 };
 
 class Root : public Code {

@@ -7,6 +7,7 @@
 #include <llvm/IR/DerivedTypes.h>
 #include <numeric>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -18,6 +19,8 @@
 #include "ast.hpp"
 #include "errors.hpp"
 #include "kind.hpp"
+#include "scope.hpp"
+#include "symbol.hpp"
 #include "type.hpp"
 #include "type_traits.hpp"
 #include "utils.hpp"
@@ -30,10 +33,14 @@ public:
   using Statement::Statement;
   virtual ~Expression() = default;
 
-  virtual void gen() override final { get(); };
-  virtual void init() override final { resolveType(); };
+  virtual void gen() override final {
+    try {
+      get();
+    } catch (std::runtime_error &e) {
+      throw CodeGenError(info, e.what());
+    }
+  };
   virtual llvm::Value *get() override = 0;
-  virtual void resolveType() = 0;
 
   virtual std::string to_string() override { return "[***expression***]"; };
 };
@@ -99,7 +106,6 @@ public:
 class ArrayExpr final : public Expression {
   std::vector<Value *> elements{};
   std::stringstream valstr{};
-  llvm::Value *head{nullptr};
 
 public:
   ArrayExpr(std::vector<Expression *> &&initExpr);
@@ -114,13 +120,11 @@ class StringExpr final : public Expression,
   std::string value;
 
 public:
-  StringExpr(const std::string &str) : ConstantEval<std::string>{str} {}
-  virtual llvm::Value *get() override {};
-  virtual std::string to_string() override {};
-  virtual void resolveType() override {};
-  virtual std::string value_str() override {
-    return std::format("\"{}\"", value);
-  }
+  StringExpr(const std::string &str);
+  virtual llvm::Value *get() override;
+  virtual std::string to_string() override;
+  virtual void resolveType() override;
+  virtual std::string value_str() override;
 };
 
 class Substance : public virtual Expression {
@@ -130,23 +134,27 @@ public:
   virtual llvm::Value *ptr() = 0;
 };
 
-class Variable final : public Substance {
-  Type *initialType{nullptr};
+class LocalVariable final : public Substance, public Symbol {
+  Type *initialType;
   llvm::AllocaInst *pointer{nullptr};
   std::string name;
-  static inline std::map<std::string, Variable *> varmap{};
-
-  Variable(const std::string &name, Type *type);
+  const bool isReference;
 
 public:
-  static Variable *DefineNewVariable(const std::string &name, Type &type);
-  Variable(const std::string &name);
-  virtual std::string to_string() override;
+  LocalVariable(const std::string &name, Type *type);
+  LocalVariable(const std::string &name);
   void allocate();
+
+  virtual std::string to_string() override;
   virtual llvm::Value *get() override;
   virtual void set(Value &val) override;
   virtual llvm::Value *ptr() override;
+  virtual const std::string kind() const override { return "LocalVariable"; };
+
   virtual void resolveType() override;
+  virtual void resolveSymbol() override;
+  virtual void init() override;
+
   const std::string &getname();
 };
 

@@ -36,11 +36,6 @@ int main(int argc, char **argv) {
     auto context = std::make_unique<llvm::LLVMContext>();
     auto mainModule = std::make_unique<llvm::Module>("main", *context);
 
-    auto mainFuncType =
-        llvm::FunctionType::get(llvm::IntegerType::get(*context, 32), false);
-    auto mainFunc = llvm::Function::Create(
-        mainFuncType, llvm::Function::ExternalLinkage, "0", *mainModule);
-
     llvm::IRBuilder<> builder{*context};
     llvm::InitializeNativeTarget();
     llvm::InitializeNativeTargetAsmPrinter();
@@ -61,7 +56,7 @@ int main(int argc, char **argv) {
 
     Compiler::Parser parser{std::move(tokens)};
 
-    auto root = parser.parse(mainFunc);
+    auto root = parser.parse();
 
     root.gen();
 
@@ -79,7 +74,7 @@ int main(int argc, char **argv) {
     auto compiler = util::createCompiler(std::move(tsm));
     std::cout << "create compiler" << std::endl;
 
-    auto f = compiler->lookup("0")->toPtr<int()>();
+    auto f = compiler->lookup("hoge")->toPtr<int()>();
     std::cout << std::boolalpha;
     std::cout << "return:" << f() << std::endl;
   } catch (Compiler::Error &err) {

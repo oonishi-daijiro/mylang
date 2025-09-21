@@ -6,19 +6,21 @@
 
 #include "ast.hpp"
 #include "expressions.hpp"
+#include "scope.hpp"
 #include "value.hpp"
 
 namespace Compiler {
 
 class Ret final : public Statement {
 private:
-  Value &retVal;
+  Value *retVal{nullptr};
   llvm::AllocaInst *retPtr;
   llvm::BasicBlock *retbb;
   llvm::BasicBlock *parentbb;
 
 public:
   Ret(Expression *expr);
+  Ret();
   virtual ~Ret() = default;
 
   virtual void gen() override;
@@ -27,28 +29,30 @@ public:
   const Type &returnType();
   void ret2allocaPtr(llvm::AllocaInst *ptr);
   void retBlock(llvm::BasicBlock *bb);
-
   void ret2allocaRetBB(llvm::BasicBlock *blk) { this->retbb = blk; };
-  void ret2alloca() {
-    auto inst = parentbb->getTerminator();
-    auto origin = builder->GetInsertBlock();
-    if (inst != nullptr) {
-      parentbb->getTerminator()->eraseFromParent();
-    }
-    builder->SetInsertPoint(parentbb);
-    builder->CreateBr(retbb);
-    builder->SetInsertPoint(origin);
-  }
+  void ret2alloca();
 };
 
 class CompoundStatement : public Statement {
   std::vector<Statement *> stmts;
+  Scope scp{};
 
 public:
   CompoundStatement(std::vector<Statement *> &&stmts) : stmts{stmts} {
     for (auto &&stmt : stmts) {
       appendChild(stmt);
     }
+  }
+
+  Scope &scope() { return scp; }
+
+  virtual void resolveScope() override {
+    walkAllChildlenBF([&](Node *n) {
+      if (n->isa<CompoundStatement>()) {
+        auto cmpstmt = n->cast<CompoundStatement>();
+        cmpstmt->scope().setParent(scp);
+      }
+    });
   }
 
   virtual std::string to_string() override;
@@ -59,12 +63,12 @@ public:
   }
 };
 
-class MutableVarDeclaration final : public Statement {
-  Variable *var{nullptr};
+class MutableLocalVarDeclaration final : public Statement {
+  LocalVariable *var{nullptr};
   Value &initVal;
 
 public:
-  MutableVarDeclaration(const std::string &name, Expression &initVal);
+  MutableLocalVarDeclaration(const std::string &name, Expression &initVal);
   virtual void hosting() final;
   virtual void gen() override;
   virtual std::string to_string() override;

@@ -1,5 +1,8 @@
 #include "type.hpp"
+#include "errors.hpp"
 #include "kind.hpp"
+#include <functional>
+#include <stdexcept>
 
 namespace Compiler {
 
@@ -41,7 +44,8 @@ void Type::DefineNewPrimitiveType(const std::string &name, llvm::Type *inst,
 Type::Type() {};
 
 Type::Type(const std::string &name, llvm::Type *inst, TypeTrait *tr, Kind *k)
-    : inst{inst}, tname{name}, tr{tr}, k{k} {}
+    : inst(inst), tname(name), tr(tr), k(k),
+      hash{std::hash<std::string>()(name)} {}
 
 Type::Type(const std::string &name) {
   auto &&t = GetType(name);
@@ -53,8 +57,14 @@ Type &Type::operator=(const std::string &name) {
   return *this;
 }
 
-bool Type::operator==(const Type &r) const { return this->tname == r.tname; };
+bool Type::operator==(const Type &r) const { return this->hash == r.hash; };
 bool Type::operator!=(const Type &r) const { return !(*this == r); }
+bool Type::operator==(const std::string &name) const {
+  return *this == GetType(name);
+}
+bool Type::operator!=(const std::string &name) const {
+  return !(*this == GetType(name));
+}
 const std::string &Type::name() const { return tname; }
 
 Type &Type::operator=(const Type &r) {
@@ -63,6 +73,7 @@ Type &Type::operator=(const Type &r) {
     this->tname = r.tname;
     this->tr = r.tr;
     this->k = r.k;
+    this->hash = r.hash;
   }
   return *this;
 };
@@ -72,7 +83,7 @@ Kind *Type::kind() { return k; }
 void Type::setKind(Kind *kind) { k = kind; }
 
 llvm::Type *Type::getTypeInst() const {
-  if (tname == "unresolved_type") {
+  if (hash == unresolved_type_hash) {
     throw std::runtime_error("cannot resolve type");
   }
   return inst;

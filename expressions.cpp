@@ -1,6 +1,13 @@
+#include <llvm/IR/Constant.h>
+#include <llvm/IR/Constants.h>
 #include <vector>
 
+#include "control_statements.hpp"
+#include "errors.hpp"
 #include "expressions.hpp"
+#include "kind.hpp"
+#include "symbol.hpp"
+#include "type.hpp"
 #include "utils.hpp"
 
 namespace Compiler {
@@ -48,64 +55,86 @@ ArrayExpr::ArrayExpr(std::vector<Expression *> &&initExprs)
 }
 
 // variable
-Variable::Variable(const std::string &name, Type *type)
-    : name{name}, initialType{type} {}
+LocalVariable::LocalVariable(const std::string &name, Type *type)
+    : name{name}, initialType{type}, Symbol{name}, isReference{false} {}
 
-Variable *Variable::DefineNewVariable(const std::string &name, Type &type) {
-  if (varmap.count(name)) {
-    throw SymbolError(std::format("variable {} is already defined", name));
-  } else {
-    auto ptr = new Variable{name, &type};
-    varmap.emplace(name, ptr);
-    return ptr;
-  }
-}
+LocalVariable::LocalVariable(const std::string &name)
+    : name{name}, Symbol{name}, isReference{true} {}
 
-Variable::Variable(const std::string &name) : name{name} {
-  if (!varmap.count(name)) {
-    throw SymbolError(std::format("variable \"{}\" is not defined", name));
-  } else {
-    initialType = varmap.at(name)->initialType;
-  }
-}
-
-void Variable::allocate() {
-  if (pointer == nullptr) {
+void LocalVariable::allocate() {
+  if (!isReference) {
     pointer = builder->CreateAlloca(type.getTypeInst(), nullptr, name);
+  } else {
+    pointer = scope().find(name)->expect<LocalVariable>()->pointer;
   }
 }
 
-llvm::Value *Variable::get() {
-  if (pointer == nullptr) {
-    pointer = varmap.at(name)->pointer;
+llvm::Value *LocalVariable::get() {
+  if (isReference && pointer == nullptr) {
+    pointer = scope().find(name)->expect<LocalVariable>()->pointer;
   }
   return builder->CreateLoad(type.getTypeInst(), pointer);
 };
 
-void Variable::set(Value &val) {
-  if (pointer == nullptr) {
-    pointer = varmap.at(name)->pointer;
+void LocalVariable::set(Value &val) {
+  if (isReference && pointer == nullptr) {
+    pointer = scope().find(name)->expect<LocalVariable>()->pointer;
   }
   builder->CreateStore(val.get(), pointer);
 }
-llvm::Value *Variable::ptr() { return pointer; }
 
-void Variable::resolveType() {
+llvm::Value *LocalVariable::ptr() {
+  if (isReference && pointer == nullptr) {
+    pointer = scope().find(name)->expect<LocalVariable>()->pointer;
+  }
+  return pointer;
+}
+
+void LocalVariable::resolveType() {
   if (initialType != nullptr) {
     type = *initialType;
   } else {
-    type = Type{};
+    throw TypeError(info, std::format("unable to resolve type"));
   }
 }
 
-const std::string &Variable::getname() { return name; }
+const std::string &LocalVariable::getname() { return name; }
+void LocalVariable::init() {}
+
+void LocalVariable::resolveSymbol() {
+  if (isReference) {
+    if (scope().exists(name)) {
+      auto sym = scope().find(name);
+      if (sym->isa<LocalVariable>()) {
+        auto lclVar = sym->cast<LocalVariable>();
+        initialType = lclVar->initialType;
+      } else {
+        throw SymbolError(info,
+                          std::format("symbol {} is defined but defined as {}",
+                                      name, sym->kind()));
+      }
+    } else {
+      throw SymbolError(
+          info, std::format("local variable \"{}\" is not defined", name));
+    }
+  } else {
+    std::cout << &scope() << std::endl;
+    if (scope().existsOnSameScope(name)) {
+      throw SymbolError(
+          info,
+          std::format("symbol {} is already defined on the same scope", name));
+    } else {
+      scope().registerSymbol(this);
+    }
+  }
+}
 
 // array expr
 llvm::Value *ArrayExpr::get() {
   auto arraysize = builder->getInt64(elements.size());
   auto elementTy = type.kind()->cast<ArrayKind>()->element();
   auto arrayTy = llvm::ArrayType::get(elementTy.getTypeInst(), elements.size());
-  head = builder->CreateAlloca(arrayTy, nullptr);
+  auto head = builder->CreateAlloca(arrayTy, nullptr);
   auto zero = builder->getInt64(0);
 
   for (size_t i = 0; i < elements.size(); i++) {
@@ -134,5 +163,36 @@ void ArrayExpr::resolveType() {
                     "array expression must be have 1 or more elements");
   }
 };
+
+// string expr
+
+StringExpr::StringExpr(const std::string &str)
+    : ConstantEval<std::string>{str}, value{str} {}
+
+llvm::Value *StringExpr::get() {
+  auto arraysize = builder->getInt64(value.size() + 1);
+  auto elementTy = Type::GetType("char");
+  auto arrayTy =
+      llvm::ArrayType::get(elementTy.getTypeInst(), value.size() + 1);
+
+  std::vector<llvm::Constant *> initVec{};
+
+  for (size_t i = 0; i < value.size(); i++) {
+    initVec.emplace_back(
+        llvm::ConstantInt::get(elementTy.getTypeInst(), value[i]));
+  }
+  initVec.emplace_back(llvm::ConstantInt::get(elementTy.getTypeInst(), '\0'));
+
+  auto constantArray = llvm::ConstantArray::get(arrayTy, initVec);
+
+  auto strLiteralPointer = new llvm::GlobalVariable(
+      *llvmModule, arrayTy, true, llvm::GlobalValue::ExternalLinkage,
+      constantArray);
+  return strLiteralPointer;
+};
+
+void StringExpr::resolveType() { type = StringKind::Apply(value.size() + 1); };
+
+std::string StringExpr::value_str() { return std::format("\"{}\"", value); };
 
 } // namespace Compiler

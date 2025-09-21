@@ -2,12 +2,20 @@
 #include <string>
 
 #include "ast.hpp"
+#include "block.hpp"
 #include "control_statements.hpp"
 #include "expressions.hpp"
+#include "function.hpp"
 #include "operators.hpp"
 #include "statement.hpp"
 
 namespace Compiler {
+
+// function:
+std::string Function::to_string() {
+  return std::format("function {}{}", name, sig.to_string());
+}
+
 // block  : enclose {}
 std::string Block::to_string() { return "{Block}"; }
 
@@ -28,8 +36,12 @@ std::string ArrayExpr::to_string() {
   return std::format("[Array: {}:[{}]]", type.name(), valstr.str());
 }
 
-std::string Variable::to_string() {
-  return std::format("[MutableVariable:\"{}\" : {}]", name, type.name());
+std::string StringExpr::to_string() {
+  return std::format("[String: \"{}\"]", value);
+}
+
+std::string LocalVariable::to_string() {
+  return std::format("[LocalVariable:\"{}\" : {}]", name, type.name());
 }
 
 std::string Operator::to_string() {
@@ -37,7 +49,7 @@ std::string Operator::to_string() {
 }
 
 // statements : enclose <>
-std::string MutableVarDeclaration::to_string() {
+std::string MutableLocalVarDeclaration::to_string() {
   return std::format("<MutableVarDecl \"{}\">", var->getname());
 }
 

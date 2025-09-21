@@ -16,11 +16,11 @@ namespace Compiler {
 #define LITERAL                                                                \
   "double_literal", "string_literal", "boolean_literal", "integer_literal"
 
-#define BUILTIN_TYPE "numeric", "char", "string", "boolean", "integer", "void"
+#define BUILTIN_TYPE "type_specifier"
 
 #define DELIMITER                                                              \
   "left_paren", "right_paren", "semicolon", "begin_block", "end_block",        \
-      "left_square_bracket", "right_square_bracket", "comma"
+      "left_square_bracket", "right_square_bracket", "comma", "colon"
 
 #define KEYWORD                                                                \
   "constdecl", "vardecl", "function", "return_stmt", "if_stmt",                \

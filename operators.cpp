@@ -1,8 +1,11 @@
 
 
 #include <llvm/IR/Value.h>
+#include <stdexcept>
 
+#include "errors.hpp"
 #include "expressions.hpp"
+#include "kind.hpp"
 #include "operators.hpp"
 #include "type_traits.hpp"
 
@@ -48,62 +51,62 @@ void BinaryOperator::resolveType() {
 }
 
 llvm::Value *AddOperator::get() {
-  auto trait = type.trait()->except<Field>();
+  auto trait = type.trait()->expect<Field>();
   return trait->add(lv, rv);
 }
 
 llvm::Value *SubOperator::get() {
-  auto trait = type.trait()->except<Field>();
+  auto trait = type.trait()->expect<Field>();
   return trait->sub(lv, rv);
 }
 
 llvm::Value *MulOperator::get() {
-  auto trait = type.trait()->except<Field>();
+  auto trait = type.trait()->expect<Field>();
   return trait->mul(lv, rv);
 }
 
 llvm::Value *DivOperator::get() {
-  auto trait = type.trait()->except<Field>();
+  auto trait = type.trait()->expect<Field>();
   return trait->div(lv, rv);
 }
 
 llvm::Value *MinusOperator::get() {
-  auto trait = type.trait()->except<Ordered>();
+  auto trait = type.trait()->expect<Ordered>();
   return trait->minus(o);
 }
 
 llvm::Value *EqOperator::get() {
-  auto trait = lv.type.trait()->except<Boolean>();
+  auto trait = lv.type.trait()->expect<Boolean>();
   return trait->eq(lv, rv);
 }
 
 llvm::Value *NeqOperator::get() {
-  auto trait = lv.type.trait()->except<Boolean>();
+  auto trait = lv.type.trait()->expect<Boolean>();
   return trait->ne(lv, rv);
 }
 
 llvm::Value *LtOperator::get() {
-  auto trait = lv.type.trait()->except<Ordered>();
+  auto trait = lv.type.trait()->expect<Ordered>();
   return trait->lt(lv, rv);
 }
 
 llvm::Value *LeOperator::get() {
-  auto trait = lv.type.trait()->except<Ordered>();
+  auto trait = lv.type.trait()->expect<Ordered>();
   return trait->le(lv, rv);
 }
 
 llvm::Value *GtOperator::get() {
-  auto trait = lv.type.trait()->except<Ordered>();
+  auto trait = lv.type.trait()->expect<Ordered>();
   return trait->gt(lv, rv);
 }
 
 llvm::Value *GeOperator::get() {
-  auto trait = lv.type.trait()->except<Ordered>();
+  auto trait = lv.type.trait()->expect<Ordered>();
   return trait->ge(lv, rv);
 }
 
 llvm::Value *IncrementOperator::get() {
-  auto trait = o->type.trait()->except<Field>();
+  auto trait = o->type.trait()->expect<Field>();
   auto &unit = trait->unit();
   auto prev = o->get();
   builder->CreateStore(trait->add(*o, unit), o->ptr());
@@ -111,7 +114,7 @@ llvm::Value *IncrementOperator::get() {
 }
 
 llvm::Value *DecrementOperator::get() {
-  auto trait = o->type.trait()->except<Field>();
+  auto trait = o->type.trait()->expect<Field>();
   auto &unit = trait->unit();
   auto prev = o->get();
   builder->CreateStore(trait->sub(*o, unit), o->ptr());
@@ -126,6 +129,9 @@ IndexingOperator::IndexingOperator(Expression *arraylike, Expression *index)
 std::string kind() { return "[]"; }
 
 void IndexingOperator::set(Value &val) {
+  if (arraylike.type.kind()->isa<StringKind>()) {
+    throw TypeError(info, std::format("cannot set value to string literal"));
+  }
   auto ptr = this->ptr();
   builder->CreateStore(val.get(), ptr);
 };
@@ -138,27 +144,28 @@ llvm::Value *IndexingOperator::get() {
 }
 
 llvm::Value *IndexingOperator::ptr() {
-  auto indexable = arraylike.type.trait()->except<Indexable>();
+  auto indexable = arraylike.type.trait()->expect<Indexable>();
   if (index.isa<ConstantEval<int32_t>>()) {
     auto idx = index.cast<ConstantEval<int32_t>>()->val();
     auto arraysize = arraylike.type.kind()->cast<ArrayKind>()->size();
     if (idx >= arraysize) {
       throw RangeError(
           this->info,
-          std::format("index out of range. array size is {} but index is {}",
+          std::format("index out of range. size is {} but index is {}",
                       arraysize, idx));
     }
   }
   auto ptr = indexable->at(arraylike, index);
   return ptr;
 }
-void IndexingOperator::resolveType() {
 
-  if (!arraylike.type.kind()->isa<ArrayKind>()) {
-    throw TypeError(this->info,
-                    std::format("operand type {} must be array kind but {}",
-                                arraylike.type.name(),
-                                arraylike.type.kind()->name()));
+void IndexingOperator::resolveType() {
+  auto unindexable = false;
+  unindexable |= !arraylike.type.kind()->isa<ArrayKind>();
+
+  if (unindexable) {
+    throw TypeError(this->info, std::format("cannot index access to type :{}",
+                                            arraylike.type.name()));
   } else {
     type = arraylike.type.kind()->cast<ArrayKind>()->element();
   }

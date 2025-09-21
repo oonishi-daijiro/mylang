@@ -1,2 +1,5 @@
 
-int main() { int hoge[100]; }
+void hoge() {}
+using ty = int;
+
+int main() {}

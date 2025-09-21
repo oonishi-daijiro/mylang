@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstddef>
+#include <functional>
 #include <llvm/IR/Type.h>
 #include <map>
 #include <memory>
@@ -23,7 +25,7 @@ public:
   virtual std::string name() = 0;
 
   template <util::NOPTR_NOREF T>
-  T *except()
+  T *expect()
     requires(std::is_base_of_v<TypeTrait, T>)
   {
     auto ptr = dynamic_cast<T *>(this);
@@ -53,8 +55,12 @@ public:
 };
 
 class Type final {
+  static inline size_t unresolved_type_hash =
+      std::hash<std::string>{}(std::string{"unresolved_type"});
+
   llvm::Type *inst{nullptr};
   std::string tname{"unresolved_type"};
+  size_t hash{std::hash<std::string>()(tname)};
   TypeTrait *tr{nullptr};
   Kind *k{nullptr};
 
@@ -81,7 +87,10 @@ public:
   Type &operator=(const std::string &name);
   Type &operator=(const Type &r);
 
+  bool operator==(const std::string &) const;
   bool operator==(const Type &r) const;
+
+  bool operator!=(const std::string &) const;
   bool operator!=(const Type &r) const;
 
   const std::string &name() const;

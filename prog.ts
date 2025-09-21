@@ -1,5 +1,7 @@
-{
-  let hoge = [1, 2, 3, 4, 5];
-  let piyo = 2.09;
-  piyo = hoge[1];
+function hoge() {
+  let hoge = 100;
+  {
+    let some = 200;
+  }
+  let hoge = some;
 }

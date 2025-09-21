@@ -159,6 +159,10 @@ std::vector<Token> Tokennizer::tokenize() {
         emplaceNewToken(token_kind::of<"break">);
       } else if (valueBuffer == "continue") {
         emplaceNewToken(token_kind::of<"continue">);
+      } else if (valueBuffer == "integer" || valueBuffer == "double" ||
+                 valueBuffer == "void" || valueBuffer == "string" ||
+                 valueBuffer == "boolean") {
+        emplaceNewToken(token_kind::of<"type_specifier">, valueBuffer);
       } else {
         emplaceNewToken(token_kind::of<"symbol">, valueBuffer);
       }
@@ -173,6 +177,9 @@ std::vector<Token> Tokennizer::tokenize() {
       }
       ++reader;
       emplaceNewToken(token_kind::of<"string_literal">, valueBuffer);
+    } else if (c == ':') {
+      emplaceNewToken(token_kind::of<"colon">);
+      ++reader;
     } else {
       ++reader;
     }

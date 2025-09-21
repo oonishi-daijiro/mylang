@@ -23,6 +23,8 @@ protected:
 public:
   virtual ~Kind() = default;
 
+  virtual std::string name() = 0;
+
   template <typename T>
   bool isa()
     requires(std::is_base_of_v<Kind, T>)
@@ -32,7 +34,6 @@ public:
 
   template <typename T> T *cast() { return dynamic_cast<T *>(this); }
 
-  virtual std::string name() = 0;
   template <typename T> static inline Kind *New(auto &&...arg) {
     auto k = new T{std::forward<decltype(arg)>(arg)...};
     kindset.emplace_back(k);
@@ -42,11 +43,9 @@ public:
 
 class PrimitiveKind : public Kind {
 public:
-  virtual std::string name() override { return "primitive"; }
-  static inline Type Apply(const Type &t) {
-    auto k = Kind::New<PrimitiveKind>();
-    return {t.name(), t.getTypeInst(), t.trait(), k};
-  }
+  virtual std::string name() override;
+
+  static inline Type Apply(const Type &t);
 };
 
 class ArrayKind : public Kind {
@@ -55,19 +54,19 @@ class ArrayKind : public Kind {
 
 public:
   virtual ~ArrayKind() = default;
-  virtual std::string name() { return "array"; }
+  ArrayKind(const Type &elmTy, size_t s);
+  virtual std::string name();
 
-  ArrayKind(const Type &elmTy, size_t s) : elementTy{elmTy}, arraySize{s} {}
+  static Type Apply(const Type &t, size_t size);
 
-  const Type &element() { return elementTy; }
-  const size_t size() { return arraySize; }
-  static inline Type Apply(const Type &t, size_t size) {
-    auto arrayHeadPtrInst = llvm::PointerType::get(t.getTypeInst(), 0);
-    auto tyName = std::format("array[{}]", size);
-    auto tr = TypeTrait::New<ArrayTyTrait>();
-    auto k = Kind::New<ArrayKind>(t, size);
-    return {tyName, arrayHeadPtrInst, tr, k};
-  }
+  const Type &element();
+  const size_t size();
+};
+
+class StringKind : public ArrayKind {
+public:
+  StringKind(size_t s);
+  static Type Apply(size_t size);
 };
 
 class PointerKind : public Kind {};

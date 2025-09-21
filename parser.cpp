@@ -4,22 +4,59 @@
 #include <llvm/IR/Function.h>
 #include <llvm/IR/Value.h>
 #include <llvm/Support/Error.h>
+#include <optional>
+#include <tuple>
+#include <utility>
 #include <vector>
 
 #include "ast.hpp"
+#include "block.hpp"
 #include "control_statements.hpp"
 #include "errors.hpp"
 #include "expressions.hpp"
+#include "function.hpp"
 #include "operators.hpp"
 #include "parser.hpp"
 #include "statement.hpp"
 #include "token.hpp"
+#include "type.hpp"
 
 namespace Compiler {
 
-Block *Parser::parseBlock(std::string name, llvm::Function *parent) {
+Function *Parser::parseFunction() {
+  expect(token_kind::of<"function">);
+  expect(token_kind::of<"symbol">);
+  auto funcName = tokitr->value;
+  expect(token_kind::of<"left_paren">);
+
+  std::vector<std::pair<std::string, Type>> argtype{};
+  std::optional<Type> ret{std::nullopt};
+  Block *body = nullptr;
+  while ((tokitr + 1)->kind != token_kind::of<"right_paren">) {
+    expect(token_kind::of<"symbol">);
+    auto argname = tokitr->value;
+    expect(token_kind::of<"colon">);
+    expect(token_kind::of<"type_specifier">);
+    auto type = Type::GetType(tokitr->value);
+    argtype.emplace_back(argname, type);
+    consume(token_kind::of<"comma">);
+  }
+  expect(token_kind::of<"right_paren">);
+
+  if (consume(token_kind::of<"colon">)) {
+    expect(token_kind::of<"type_specifier">);
+    ret = Type::GetType(tokitr->value);
+    body = parseBlock();
+  } else {
+    body = parseBlock();
+  }
+  FunctionSignature sig{std::move(argtype), ret};
+  return new Function(funcName, sig, body);
+}
+
+Block *Parser::parseBlock() {
   expect(token_kind::of<"begin_block">);
-  auto blk = new Block(parseCompoundStatement(), name, parent);
+  auto blk = new Block(parseCompoundStatement());
   expect(token_kind::of<"end_block">);
   return blk;
 }
@@ -123,10 +160,16 @@ Statement *Parser::parseMutableVarDecl() {
   auto symbol = *tokitr;
   expect(token_kind::of<"assign">);
   auto expr = parseExpression();
-  return new MutableVarDeclaration(symbol.value, *expr);
+  return new MutableLocalVarDeclaration(symbol.value, *expr);
 }
 
-Statement *Parser::parseReturn() { return new Ret(parseExpression()); }
+Statement *Parser::parseReturn() {
+  if ((tokitr + 1)->kind == token_kind::of<"semicolon">) {
+    return new Ret();
+  } else {
+    return new Ret(parseExpression());
+  }
+}
 
 Statement *Parser::parseAssign() {
   auto lv = parseExpression();
@@ -240,7 +283,7 @@ Expression *Parser::parsePrimary() {
   } else if (consume(token_kind::of<"integer_literal">)) {
     primary = new IntegerExpr(std::atoi(tokitr->value.c_str()));
   } else if (consume(token_kind::of<"symbol">)) {
-    primary = new Variable(tokitr->value);
+    primary = new LocalVariable(tokitr->value);
     if (consume(token_kind::of<"left_square_bracket">)) {
       Expression *index = parseExpression();
       expect(token_kind::of<"right_square_bracket">);
@@ -250,6 +293,9 @@ Expression *Parser::parsePrimary() {
     primary = new BooleanExpr(tokitr->value == "true" ? true : false);
   } else if (consume(token_kind::of<"left_square_bracket">)) {
     primary = parseArrayLiteral();
+  } else if (consume(token_kind::of<"string_literal">)) {
+    auto val = tokitr->value;
+    primary = new StringExpr(val);
   } else {
     std::string err =
         std::format("[unexpected token] expected primary expression but {}",
@@ -270,10 +316,10 @@ double Parser::stodnoe(auto &&str) noexcept {
 Parser::Parser(std::vector<Token> &&tokens)
     : tokens{std::forward<decltype(tokens)>(tokens)} {};
 
-Root Parser::parse(llvm::Function *mainFunc) {
+Root Parser::parse() {
   Node::init(tokitr);
   ParseError::init(tokitr);
-  Root root{parseBlock("", mainFunc)};
+  Root root{parseFunction()};
   return root;
 };
 

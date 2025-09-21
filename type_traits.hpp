@@ -123,4 +123,16 @@ public:
   virtual llvm::Value *at(Value &arraylike, Value &idx) override;
 };
 
+class StringTyTrait : virtual public Indexable {
+public:
+  virtual std::string name() override { return "StringTyTrait"; }
+  virtual llvm::Value *at(Value &arraylike, Value &idx) override;
+};
+
+class CharacterTyTrait : virtual public Boolean {
+  virtual std::string name() override { return "CharacterTyTrait"; }
+  virtual llvm::Value *eq(Value &lv, Value &rv) override;
+  virtual llvm::Value *ne(Value &lv, Value &rv) override;
+};
+
 } // namespace Compiler
