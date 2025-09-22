@@ -6,7 +6,6 @@
 #include <llvm/IR/Function.h>
 
 #include "ast.hpp"
-#include "statement.hpp"
 
 namespace Compiler {
 
@@ -22,7 +21,7 @@ Node *Node::appendChild(Node *nodep) {
   return this;
 };
 
-void Node::walkAllChildlenDFPO(std::function<void(Node *)> callback) {
+void Node::walkAllChildlenDFPO(const std::function<void(Node *)> &callback) {
   std::stack<Node *> s{};
   std::set<Node *> v{};
 
@@ -43,7 +42,7 @@ void Node::walkAllChildlenDFPO(std::function<void(Node *)> callback) {
   }
 }
 
-void Node::walkAllChildlenBF(std::function<void(Node *)> callback) {
+void Node::walkAllChildlenBF(const std::function<void(Node *)> &callback) {
   std::queue<Node *> q{};
   std::set<Node *> v{};
 
@@ -55,7 +54,7 @@ void Node::walkAllChildlenBF(std::function<void(Node *)> callback) {
     q.pop();
     callback(n);
     for (auto &&child : n->children) {
-      if (v.contains(child)) {
+      if (!v.contains(child)) {
         v.emplace(child);
         q.push(child);
       }
@@ -77,7 +76,6 @@ void Root::printImpl(int depth, Node *node, std::stringstream &ss) {
 void Root::print() {
   std::stringstream ss;
   printImpl(0, rootNode, ss);
-  // std::cout << ss.str() << std::endl;
 }
 
 Root::Root(Root &&src) {
@@ -93,13 +91,25 @@ std::string Root::to_string() {
 
 void Root::gen() {
   if (rootNode != nullptr) {
+    rootNode->walkAllChildlenBF([](Node *node) {
+      if (node->isa<ScopeSemantic>()) {
+        node->cast<ScopeSemantic>()->resolveScope();
+      }
+    });
+    rootNode->walkAllChildlenDFPO([](Node *node) {
+      if (node->isa<SymbolSemantic>()) {
+        node->cast<SymbolSemantic>()->resolveSymbol();
+      }
+    });
+    rootNode->walkAllChildlenDFPO([](Node *node) {
+      if (node->isa<TypeSemantic>()) {
+        node->cast<TypeSemantic>()->resolveType();
+      }
+    });
     rootNode->walkAllChildlenDFPO([](Node *node) { node->init(); });
-    rootNode->walkAllChildlenBF([](Node *node) { node->resolveScope(); });
-    rootNode->walkAllChildlenDFPO([](Node *node) { node->resolveSymbol(); });
-    rootNode->walkAllChildlenDFPO([](Node *node) { node->resolveType(); });
-
     std::cout << "===============  AST  ===============" << std::endl;
     print();
+
     rootNode->gen();
   }
 }

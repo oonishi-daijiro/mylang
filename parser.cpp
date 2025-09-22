@@ -17,11 +17,16 @@
 #include "function.hpp"
 #include "operators.hpp"
 #include "parser.hpp"
+#include "program.hpp"
 #include "statement.hpp"
 #include "token.hpp"
 #include "type.hpp"
 
 namespace Compiler {
+Program *Parser::parseProgram() {
+  auto func = parseFunction();
+  return new Program(*func);
+}
 
 Function *Parser::parseFunction() {
   expect(token_kind::of<"function">);
@@ -29,7 +34,7 @@ Function *Parser::parseFunction() {
   auto funcName = tokitr->value;
   expect(token_kind::of<"left_paren">);
 
-  std::vector<std::pair<std::string, Type>> argtype{};
+  std::vector<ArgumentInfo> argtype{};
   std::optional<Type> ret{std::nullopt};
   Block *body = nullptr;
   while ((tokitr + 1)->kind != token_kind::of<"right_paren">) {
@@ -56,7 +61,11 @@ Function *Parser::parseFunction() {
 
 Block *Parser::parseBlock() {
   expect(token_kind::of<"begin_block">);
-  auto blk = new Block(parseCompoundStatement());
+  std::vector<Statement *> stmts{};
+  while (*(tokitr + 1) != token_kind::of<"end_block">) {
+    stmts.emplace_back(parseStatement());
+  }
+  auto blk = new Block(std::move(stmts));
   expect(token_kind::of<"end_block">);
   return blk;
 }
@@ -173,7 +182,6 @@ Statement *Parser::parseReturn() {
 
 Statement *Parser::parseAssign() {
   auto lv = parseExpression();
-  std::cout << lv->to_string() << std::endl;
   expect(token_kind::of<"assign">);
   auto rv = parseExpression();
   auto assign = new Assign(lv, rv);
@@ -319,7 +327,7 @@ Parser::Parser(std::vector<Token> &&tokens)
 Root Parser::parse() {
   Node::init(tokitr);
   ParseError::init(tokitr);
-  Root root{parseFunction()};
+  Root root{parseProgram()};
   return root;
 };
 

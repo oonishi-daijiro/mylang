@@ -24,6 +24,7 @@
 #include <llvm/IR/Value.h>
 
 #include "debug.hpp"
+#include "scope.hpp"
 #include "token.hpp"
 // #include "traits.hpp"
 
@@ -67,14 +68,14 @@ public:
   virtual std::string to_string() = 0;
 };
 
-class Semantic : public Code {
-protected:
-  virtual void resolveType() {}
-  virtual void resolveSymbol() {}
-  virtual void resolveScope() {}
-};
+// class Semantic : public Code {
+// protected:
+//   virtual void resolveType() {}
+//   virtual void resolveSymbol() {}
+//   virtual void resolveScope() {}
+// };
 
-class Node : public Semantic {
+class Node : public Code {
   friend class Root;
   virtual void unlinkFirstChild() final;
   virtual Node *getFirstChild() final;
@@ -107,15 +108,48 @@ public:
   }
 
   bool hasNoChild() { return children.empty(); }
-  virtual void walkAllChildlenDFPO(std::function<void(Node *)>) final;
-  virtual void walkAllChildlenBF(std::function<void(Node *)>) final;
+  virtual void walkAllChildlenDFPO(const std::function<void(Node *)> &) final;
+  virtual void walkAllChildlenBF(const std::function<void(Node *)> &) final;
   virtual void init() {}
 
   static inline void init(tokitr_t &itr) { curtok = &itr; }
 };
 
-class Program : public Node {
-  using Node::Node;
+class TypeSemantic {
+public:
+  virtual ~TypeSemantic() = default;
+  virtual void resolveType() = 0;
+};
+
+class SymbolSemantic {
+public:
+  virtual ~SymbolSemantic() = default;
+  virtual void resolveSymbol() = 0;
+};
+
+class ScopeSemantic {
+  Scope scp;
+
+  void defaultScopeInitalizerImpl(Node *n) {
+    if (n->isa<ScopeSemantic>()) {
+      auto scpSem = n->cast<ScopeSemantic>();
+      scpSem->scope().setParent(this->scope());
+    }
+    if (n->isa<Symbol>()) {
+      auto symbol = n->cast<Symbol>();
+      symbol->setScope(this->scope());
+    }
+  }
+
+protected:
+  std::function<void(Node *)> defaultScopeInitalizer{
+      [&](Node *n) { defaultScopeInitalizerImpl(n); }};
+
+public:
+  virtual ~ScopeSemantic() = default;
+  virtual void resolveScope() = 0;
+  Scope &scope() { return scp; }
+  ScopeSemantic() {}
 };
 
 class Statement : public Node {

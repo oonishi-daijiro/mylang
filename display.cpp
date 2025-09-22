@@ -1,4 +1,5 @@
 #include <format>
+#include <sstream>
 #include <string>
 
 #include "ast.hpp"
@@ -7,13 +8,15 @@
 #include "expressions.hpp"
 #include "function.hpp"
 #include "operators.hpp"
+#include "scope.hpp"
 #include "statement.hpp"
+#include "symbol.hpp"
 
 namespace Compiler {
 
 // function:
 std::string Function::to_string() {
-  return std::format("function {}{}", name, sig.to_string());
+  return std::format("(function {}{})", name, sig.to_string());
 }
 
 // block  : enclose {}
@@ -47,6 +50,10 @@ std::string LocalVariable::to_string() {
 std::string Operator::to_string() {
   return std::format("[Operator {} : {}]", kind(), type.name());
 }
+
+std::string FunctionArgument::to_string() {
+  return std::format("[Argument {} : {}]", name, type.name());
+};
 
 // statements : enclose <>
 std::string MutableLocalVarDeclaration::to_string() {

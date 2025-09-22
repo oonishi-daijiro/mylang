@@ -26,6 +26,8 @@ std::string MinusOperator::kind() { return "(-)"; }
 std::string IncrementOperator::kind() { return "(...)++"; }
 std::string DecrementOperator::kind() { return "(...)--"; }
 
+// magma operator
+
 MagmaOperator::MagmaOperator(Expression *lv, Expression *rv)
     : Operator{{lv, rv}}, lv{*lv}, rv{*rv} {}
 
@@ -34,9 +36,11 @@ void MagmaOperator::resolveType() {
     throw TypeError(this->info, std::format("type mismatch: '{}' vs '{}'",
                                             lv.type.name(), rv.type.name()));
   } else {
-    this->type = lv.type;
+    type = lv.type;
   }
 };
+
+// binary operator
 
 BinaryOperator::BinaryOperator(Expression *lv, Expression *rv)
     : Operator{lv, rv}, lv{*lv}, rv{*rv} {}

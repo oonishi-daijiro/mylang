@@ -8,6 +8,7 @@
 #include "block.hpp"
 #include "expressions.hpp"
 #include "function.hpp"
+#include "program.hpp"
 #include "token.hpp"
 
 namespace Compiler {

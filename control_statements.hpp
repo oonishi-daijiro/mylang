@@ -9,7 +9,7 @@
 
 namespace Compiler {
 
-class IfStatement : public Statement {
+class IfStatement : public Statement, public TypeSemantic {
   Value &cond;
 
   Statement &then;
@@ -21,9 +21,12 @@ public:
   virtual void gen() override;
   virtual std::string to_string() override;
   llvm::BasicBlock *genbb(const std::string &name = "");
+  virtual void resolveType() override;
 };
 
-class ForStatement final : public Statement {
+class ForStatement final : public Statement,
+                           public TypeSemantic,
+                           public ScopeSemantic {
   Statement &initStmt;
   Expression &loopCond;
   Expression &next;
@@ -42,6 +45,8 @@ public:
   virtual void init() override;
   virtual std::string to_string() override;
   virtual void gen() override;
+  virtual void resolveType() override;
+  virtual void resolveScope() override;
 };
 
 class ContinueStatement : public Statement {
@@ -64,7 +69,7 @@ public:
   virtual void gen() override;
 };
 
-class WhileStatement : public Statement {
+class WhileStatement : public Statement, public TypeSemantic {
   Value &cond;
   Statement &whileBody;
   llvm::BasicBlock *mergebb{nullptr};
@@ -76,6 +81,7 @@ public:
   virtual std::string to_string() override;
   virtual void gen() override;
   virtual void init() override;
+  virtual void resolveType() override;
 };
 
 } // namespace Compiler

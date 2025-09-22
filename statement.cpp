@@ -73,4 +73,23 @@ void Ret::ret2alloca() {
   builder->SetInsertPoint(origin);
 }
 
+// compound statement
+
+CompoundStatement::CompoundStatement(std::vector<Statement *> &&s)
+    : stmts{std::move(s)} {
+  for (auto &&stmt : stmts) {
+    appendChild(stmt);
+  }
+}
+
+void CompoundStatement::resolveScope() {
+  walkAllChildlenBF(defaultScopeInitalizer);
+}
+
+void CompoundStatement::gen() {
+  for (auto &&e : stmts) {
+    e->gen();
+  }
+}
+
 } // namespace Compiler

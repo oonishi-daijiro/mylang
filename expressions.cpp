@@ -15,26 +15,20 @@ namespace Compiler {
 // double expr
 DoubleExpr::DoubleExpr(double val) : ConstantEval{val}, value{val} {};
 
-llvm::Value *DoubleExpr::get() {
-  return llvm::ConstantFP::get(type.getTypeInst(), value);
-};
+llvm::Value *DoubleExpr::get() { return llvm::ConstantFP::get(type, value); };
 
 void DoubleExpr::resolveType() { type = "double"; }
 
 // integer expr
 IntegerExpr::IntegerExpr(int32_t val) : ConstantEval{val}, value{val} {}
 
-llvm::Value *IntegerExpr::get() {
-  return llvm::ConstantInt::get(type.getTypeInst(), value);
-};
+llvm::Value *IntegerExpr::get() { return llvm::ConstantInt::get(type, value); };
 
 void IntegerExpr::resolveType() { type = "integer"; }
 
 // boolean expr
 BooleanExpr::BooleanExpr(bool b) : ConstantEval{b}, value{b} {};
-llvm::Value *BooleanExpr::get() {
-  return llvm::ConstantInt::get(type.getTypeInst(), value);
-};
+llvm::Value *BooleanExpr::get() { return llvm::ConstantInt::get(type, value); };
 void BooleanExpr::resolveType() { type = "boolean"; }
 
 // array expr
@@ -63,29 +57,29 @@ LocalVariable::LocalVariable(const std::string &name)
 
 void LocalVariable::allocate() {
   if (!isReference) {
-    pointer = builder->CreateAlloca(type.getTypeInst(), nullptr, name);
+    pointer = builder->CreateAlloca(type, nullptr, name);
   } else {
-    pointer = scope().find(name)->expect<LocalVariable>()->pointer;
+    pointer = currentScope().find(name)->expect<LocalVariable>()->pointer;
   }
 }
 
 llvm::Value *LocalVariable::get() {
   if (isReference && pointer == nullptr) {
-    pointer = scope().find(name)->expect<LocalVariable>()->pointer;
+    pointer = currentScope().find(name)->expect<LocalVariable>()->pointer;
   }
-  return builder->CreateLoad(type.getTypeInst(), pointer);
+  return builder->CreateLoad(type, pointer);
 };
 
 void LocalVariable::set(Value &val) {
   if (isReference && pointer == nullptr) {
-    pointer = scope().find(name)->expect<LocalVariable>()->pointer;
+    pointer = currentScope().find(name)->expect<LocalVariable>()->pointer;
   }
   builder->CreateStore(val.get(), pointer);
 }
 
 llvm::Value *LocalVariable::ptr() {
   if (isReference && pointer == nullptr) {
-    pointer = scope().find(name)->expect<LocalVariable>()->pointer;
+    pointer = currentScope().find(name)->expect<LocalVariable>()->pointer;
   }
   return pointer;
 }
@@ -103,8 +97,8 @@ void LocalVariable::init() {}
 
 void LocalVariable::resolveSymbol() {
   if (isReference) {
-    if (scope().exists(name)) {
-      auto sym = scope().find(name);
+    if (currentScope().available(name)) {
+      auto sym = currentScope().find(name);
       if (sym->isa<LocalVariable>()) {
         auto lclVar = sym->cast<LocalVariable>();
         initialType = lclVar->initialType;
@@ -118,13 +112,13 @@ void LocalVariable::resolveSymbol() {
           info, std::format("local variable \"{}\" is not defined", name));
     }
   } else {
-    std::cout << &scope() << std::endl;
-    if (scope().existsOnSameScope(name)) {
+    if (currentScope().existsOnSameScope(name)) {
       throw SymbolError(
           info,
-          std::format("symbol {} is already defined on the same scope", name));
+          std::format("symbol {} is already defined on the same scope as a {}",
+                      name, currentScope().find(name)->kind()));
     } else {
-      scope().registerSymbol(this);
+      registerToCurrentScope();
     }
   }
 }
@@ -133,7 +127,7 @@ void LocalVariable::resolveSymbol() {
 llvm::Value *ArrayExpr::get() {
   auto arraysize = builder->getInt64(elements.size());
   auto elementTy = type.kind()->cast<ArrayKind>()->element();
-  auto arrayTy = llvm::ArrayType::get(elementTy.getTypeInst(), elements.size());
+  auto arrayTy = llvm::ArrayType::get(elementTy, elements.size());
   auto head = builder->CreateAlloca(arrayTy, nullptr);
   auto zero = builder->getInt64(0);
 
@@ -172,16 +166,14 @@ StringExpr::StringExpr(const std::string &str)
 llvm::Value *StringExpr::get() {
   auto arraysize = builder->getInt64(value.size() + 1);
   auto elementTy = Type::GetType("char");
-  auto arrayTy =
-      llvm::ArrayType::get(elementTy.getTypeInst(), value.size() + 1);
+  auto arrayTy = llvm::ArrayType::get(elementTy, value.size() + 1);
 
   std::vector<llvm::Constant *> initVec{};
 
   for (size_t i = 0; i < value.size(); i++) {
-    initVec.emplace_back(
-        llvm::ConstantInt::get(elementTy.getTypeInst(), value[i]));
+    initVec.emplace_back(llvm::ConstantInt::get(elementTy, value[i]));
   }
-  initVec.emplace_back(llvm::ConstantInt::get(elementTy.getTypeInst(), '\0'));
+  initVec.emplace_back(llvm::ConstantInt::get(elementTy, '\0'));
 
   auto constantArray = llvm::ConstantArray::get(arrayTy, initVec);
 

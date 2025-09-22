@@ -97,6 +97,7 @@ public:
   TypeTrait *trait() const;
   llvm::Type *getTypeInst() const;
   Kind *kind();
+  operator llvm::Type *() { return getTypeInst(); }
 };
 
 } // namespace Compiler

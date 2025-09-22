@@ -28,7 +28,7 @@
 
 namespace Compiler {
 
-class Expression : public Statement, public Value {
+class Expression : public Statement, public Value, public TypeSemantic {
 public:
   using Statement::Statement;
   virtual ~Expression() = default;
@@ -134,7 +134,9 @@ public:
   virtual llvm::Value *ptr() = 0;
 };
 
-class LocalVariable final : public Substance, public Symbol {
+class LocalVariable final : public Substance,
+                            public Symbol,
+                            public SymbolSemantic {
   Type *initialType;
   llvm::AllocaInst *pointer{nullptr};
   std::string name;

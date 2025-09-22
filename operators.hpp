@@ -27,6 +27,7 @@ public:
   }
   virtual std::string to_string() final;
   virtual std::string kind() = 0;
+  virtual void resolveType() override = 0;
 };
 
 class MagmaOperator : public Operator {
@@ -177,8 +178,6 @@ public:
   virtual void resolveType() override;
 };
 
-class CallOperator : public Operator {
-  
-};
+class CallOperator : public Operator {};
 
 }; // namespace Compiler

@@ -1,12 +1,20 @@
 #include "block.hpp"
+#include "ast.hpp"
 #include "statement.hpp"
 #include "type.hpp"
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/Instructions.h>
+#include <vector>
 
 namespace Compiler {
 // block
+Block::Block(std::vector<Statement *> &&s) : stmts{std::move(s)} {
+  for (auto &&stmt : stmts) {
+    appendChild(stmt);
+  }
+}
+
 void Block::setParentFunc(llvm::Function *f) { parentFunc = f; }
 void Block::setReturnType(const Type &type) { returnType = type; }
 
@@ -29,7 +37,10 @@ void Block::gen() {
     }
   });
 
-  cmpStmt.gen();
+  for (auto &&stmt : stmts) {
+    stmt->gen();
+  }
+
   auto origin = builder->GetInsertBlock();
   builder->CreateBr(retbb);
 

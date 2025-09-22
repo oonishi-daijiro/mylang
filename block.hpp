@@ -5,14 +5,13 @@
 
 namespace Compiler {
 class Block : public Node {
-  Statement &cmpStmt;
+  std::vector<Statement *> stmts;
   llvm::Function *parentFunc;
   std::string name;
   Type returnType{};
-  
-public:
-  Block(Statement *cmpStmt) : Node{cmpStmt}, cmpStmt{*cmpStmt} {}
 
+public:
+  Block(std::vector<Statement *> &&stmts);
   void setParentFunc(llvm::Function *func);
   void setReturnType(const Type &);
 

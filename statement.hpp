@@ -6,7 +6,6 @@
 
 #include "ast.hpp"
 #include "expressions.hpp"
-#include "scope.hpp"
 #include "value.hpp"
 
 namespace Compiler {
@@ -33,34 +32,14 @@ public:
   void ret2alloca();
 };
 
-class CompoundStatement : public Statement {
+class CompoundStatement : public Statement, public ScopeSemantic {
   std::vector<Statement *> stmts;
-  Scope scp{};
 
 public:
-  CompoundStatement(std::vector<Statement *> &&stmts) : stmts{stmts} {
-    for (auto &&stmt : stmts) {
-      appendChild(stmt);
-    }
-  }
-
-  Scope &scope() { return scp; }
-
-  virtual void resolveScope() override {
-    walkAllChildlenBF([&](Node *n) {
-      if (n->isa<CompoundStatement>()) {
-        auto cmpstmt = n->cast<CompoundStatement>();
-        cmpstmt->scope().setParent(scp);
-      }
-    });
-  }
-
+  CompoundStatement(std::vector<Statement *> &&stmts);
+  virtual void resolveScope() override;
   virtual std::string to_string() override;
-  virtual void gen() override {
-    for (auto &&e : stmts) {
-      e->gen();
-    }
-  }
+  virtual void gen() override;
 };
 
 class MutableLocalVarDeclaration final : public Statement {

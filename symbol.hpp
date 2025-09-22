@@ -1,6 +1,7 @@
 #pragma once
 
 #include <format>
+#include <iostream>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
@@ -13,26 +14,17 @@ class Symbol {
   Scope *s{nullptr};
 
 public:
-  Symbol(const std::string &name)
-      : sname{name}, hash{std::hash<std::string>{}(name)} {}
+  Symbol(const std::string &name);
   virtual ~Symbol() = default;
 
-  const std::string name() const { return sname; }
+  const std::string name() const;
   virtual const std::string kind() const = 0;
 
-  virtual bool operator==(const Symbol &r) final {
-    return this->hash == r.hash;
-  }
-  virtual bool operator!=(const Symbol &r) final {
-    return this->hash != r.hash;
-  }
-  virtual bool operator==(const std::string &name) final {
-    return hash == std::hash<std::string>{}(name);
-  }
+  virtual bool operator==(const std::string &name) final;
+  virtual bool operator!=(const std::string &name) final;
 
-  virtual bool operator!=(const std::string &name) final {
-    return hash != std::hash<std::string>{}(name);
-  }
+  virtual bool operator==(const Symbol &r) final;
+  virtual bool operator!=(const Symbol &r) final;
 
   template <typename T>
   bool isa()
@@ -40,10 +32,11 @@ public:
   {
     return dynamic_cast<T *>(this) != nullptr;
   }
+
   template <typename T> T *expect() {
-    if (isa<T>()) {
+    if (!isa<T>()) {
       throw std::runtime_error(
-          std::format("expected type {} but not", typeid(T).name()));
+          std::format("expected type {} but {}", typeid(T).name(), kind()));
     }
     return dynamic_cast<T *>(this);
   }
@@ -51,7 +44,8 @@ public:
   template <typename T> T *cast() { return dynamic_cast<T *>(this); }
 
   virtual void setScope(Scope &) final;
-  virtual Scope &scope() final;
+  virtual void registerToCurrentScope() final;
+  virtual Scope &currentScope() final;
 };
 
 } // namespace Compiler

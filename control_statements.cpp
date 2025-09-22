@@ -54,6 +54,14 @@ void IfStatement::gen() {
   }
 };
 
+void IfStatement::resolveType() {
+  if (cond.type != "boolean") {
+    throw TypeError(info,
+                    std::format("condition expression should be boolean but {}",
+                                cond.type.name()));
+  }
+}
+
 // for statement
 
 ForStatement::ForStatement(Statement *initStatement, Expression *loopCond,
@@ -63,11 +71,6 @@ ForStatement::ForStatement(Statement *initStatement, Expression *loopCond,
       loopBody{*loopBody} {}
 
 void ForStatement::init() {
-  if (loopCond.type.name() != "boolean") {
-    throw TypeError(info, std::format("condition must be boolean but: {}",
-                                      loopCond.type.name()));
-  }
-
   mergebb = llvm::BasicBlock::Create(*context, "merge-for");
   nextbb = llvm::BasicBlock::Create(*context, "next-for");
 
@@ -79,6 +82,15 @@ void ForStatement::init() {
     }
   });
 };
+
+void ForStatement::resolveType() {
+  if (loopCond.type.name() != "boolean") {
+    throw TypeError(info, std::format("condition must be boolean but: {}",
+                                      loopCond.type.name()));
+  }
+}
+
+void ForStatement::resolveScope() { walkAllChildlenBF(defaultScopeInitalizer); }
 
 llvm::BasicBlock *ForStatement::genbb(const std::string &name) {
   return llvm::BasicBlock::Create(*context, name,
@@ -120,11 +132,14 @@ llvm::BasicBlock *WhileStatement::genbb(const std::string &name) {
                                   builder->GetInsertBlock()->getParent());
 };
 
-void WhileStatement::init() {
-  if (cond.type.name() != "boolean") {
+void WhileStatement::resolveType() {
+  if (cond.type != "boolean") {
     throw TypeError(info, std::format("condition must be boolean but: {}",
                                       cond.type.name()));
   }
+}
+
+void WhileStatement::init() {
   mergebb = llvm::BasicBlock::Create(*context, "while-merge");
   condbb = llvm::BasicBlock::Create(*context, "while-cond");
 

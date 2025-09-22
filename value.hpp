@@ -2,6 +2,7 @@
 
 #include <llvm/IR/Value.h>
 
+#include "ast.hpp"
 #include "type.hpp"
 
 namespace Compiler {
