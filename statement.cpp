@@ -13,7 +13,7 @@ namespace Compiler {
 // MutableVarDeclaration
 MutableLocalVarDeclaration::MutableLocalVarDeclaration(const std::string &name,
                                                        Expression &initVal)
-    : initVal{initVal}, var{new LocalVariable(name, &initVal.type)} {
+    : initVal{initVal}, var{new LocalVar(name, initVal.type)} {
   appendChild(&initVal);
   appendChild(var);
 }

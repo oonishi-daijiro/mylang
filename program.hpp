@@ -3,18 +3,17 @@
 #include "ast.hpp"
 #include "function.hpp"
 #include <string>
+#include <vector>
 namespace Compiler {
 
 class Program : public Node, public ScopeSemantic {
-  Function &f;
+  std::vector<Function *> functions;
 
 public:
-  Program(Function &func) : Node{&func}, f{func} {}
-  virtual void gen() override { f.gen(); }
-  virtual std::string to_string() override { return std::format("|Program|"); }
-  virtual void resolveScope() override {
-    walkAllChildlenBF(defaultScopeInitalizer);
-  }
+  Program(std::vector<Function *> &&);
+  virtual void gen() override;
+  virtual std::string to_string() override;
+  virtual void resolveScope() override;
 };
 
 } // namespace Compiler

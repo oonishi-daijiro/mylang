@@ -1,9 +1,13 @@
 #include "function.hpp"
 #include "ast.hpp"
 #include "errors.hpp"
+#include "expressions.hpp"
+#include "kind.hpp"
 #include "scope.hpp"
 #include "statement.hpp"
 #include "symbol.hpp"
+#include "type.hpp"
+#include "value.hpp"
 #include <format>
 #include <functional>
 #include <llvm/IR/Value.h>
@@ -15,7 +19,7 @@ FunctionSignature::FunctionSignature(const std::vector<ArgumentInfo> &&argument,
                                      const std::optional<Type> &ret)
     : ret{ret}, args{argument} {
   for (auto &&arg : args) {
-    argTy.emplace_back(arg.type());
+    argTy.emplace_back(&arg.type());
   }
 }
 
@@ -40,9 +44,11 @@ void FunctionSignature::setInferedReturnType(const Type &t) { ret = t; }
 const decltype(FunctionSignature::args) &FunctionSignature::arguments() const {
   return args;
 }
-const std::vector<Type> &FunctionSignature::argType() const { return argTy; }
+const std::vector<const Type *> &FunctionSignature::argType() const {
+  return argTy;
+}
 
-std::string FunctionSignature::to_string() {
+const std::string FunctionSignature::to_string() const {
   std::stringstream ss;
 
   ss << '(';
@@ -59,7 +65,7 @@ std::string FunctionSignature::to_string() {
 // FunctionArgument
 
 FunctionArgument::FunctionArgument(const std::string &name, const Type &type)
-    : name{name}, initTy{type}, Symbol(name) {};
+    : name{name}, initTy{type}, Variable(name) {};
 
 void FunctionArgument::resolveSymbol() {
   if (currentScope().existsOnSameScope(name)) {
@@ -72,7 +78,15 @@ void FunctionArgument::resolveSymbol() {
 
 void FunctionArgument::resolveType() { type = initTy; }
 
-llvm::Value *FunctionArgument::get() { return argSubstance; };
+llvm::Value *FunctionArgument::get() {
+  return builder->CreateLoad(type, argCopy);
+};
+
+void FunctionArgument::set(Value &val) {
+  builder->CreateStore(val.get(), argCopy);
+}
+
+llvm::Value *FunctionArgument::ptr() { return argCopy; }
 
 const std::string FunctionArgument::kind() const {
   return std::format("function argment {}", name);
@@ -129,9 +143,15 @@ void Function::resolveType() {
   }
 
   body.setReturnType(sig.returnType().value());
+  ty = FunctionKind::Apply(sig);
 }
 
 void Function::gen() {
+  auto bb = llvm::BasicBlock::Create(*context, name, func);
+  builder->SetInsertPoint(bb);
+  for (auto &&arg : argments) {
+    arg->arg2local();
+  }
   body.setParentFunc(func);
   body.gen();
 }
@@ -151,7 +171,7 @@ void Function::resolveSymbol() {
 void Function::init() {
   std::vector<llvm::Type *> argtypes{};
   for (auto &&t : sig.argType()) {
-    argtypes.emplace_back(t.getTypeInst());
+    argtypes.emplace_back(t->getTypeInst());
   }
   auto funcType =
       llvm::FunctionType::get(sig.returnType()->getTypeInst(), argtypes, false);
@@ -168,5 +188,8 @@ void Function::init() {
     argments[i]->setArgSubstance(func->getArg(i));
   }
 }
+
+llvm::Value *Function::funcPtr() { return func; }
+const Type &Function::type() { return ty; }
 
 }; // namespace Compiler

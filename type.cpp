@@ -89,4 +89,15 @@ llvm::Type *Type::getTypeInst() const {
   return inst;
 }
 
+bool operator==(const std::vector<const Type *> &lv,
+                const std::vector<const Type *> &rv) {
+  if (lv.size() != rv.size()) {
+    return false;
+  }
+  bool same = true;
+  for (int i = 0; i < lv.size(); i++) {
+    same &= (*lv[i] == *rv[i]);
+  }
+  return same;
+}
 } // namespace Compiler

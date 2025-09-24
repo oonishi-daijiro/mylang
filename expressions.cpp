@@ -2,13 +2,11 @@
 #include <llvm/IR/Constants.h>
 #include <vector>
 
-#include "control_statements.hpp"
 #include "errors.hpp"
 #include "expressions.hpp"
 #include "kind.hpp"
 #include "symbol.hpp"
 #include "type.hpp"
-#include "utils.hpp"
 
 namespace Compiler {
 
@@ -45,81 +43,6 @@ ArrayExpr::ArrayExpr(std::vector<Expression *> &&initExprs)
       valstr << initExprs[i]->type.name();
     }
     valstr << ((i == initExprs.size() - 1) ? "" : " , ");
-  }
-}
-
-// variable
-LocalVariable::LocalVariable(const std::string &name, Type *type)
-    : name{name}, initialType{type}, Symbol{name}, isReference{false} {}
-
-LocalVariable::LocalVariable(const std::string &name)
-    : name{name}, Symbol{name}, isReference{true} {}
-
-void LocalVariable::allocate() {
-  if (!isReference) {
-    pointer = builder->CreateAlloca(type, nullptr, name);
-  } else {
-    pointer = currentScope().find(name)->expect<LocalVariable>()->pointer;
-  }
-}
-
-llvm::Value *LocalVariable::get() {
-  if (isReference && pointer == nullptr) {
-    pointer = currentScope().find(name)->expect<LocalVariable>()->pointer;
-  }
-  return builder->CreateLoad(type, pointer);
-};
-
-void LocalVariable::set(Value &val) {
-  if (isReference && pointer == nullptr) {
-    pointer = currentScope().find(name)->expect<LocalVariable>()->pointer;
-  }
-  builder->CreateStore(val.get(), pointer);
-}
-
-llvm::Value *LocalVariable::ptr() {
-  if (isReference && pointer == nullptr) {
-    pointer = currentScope().find(name)->expect<LocalVariable>()->pointer;
-  }
-  return pointer;
-}
-
-void LocalVariable::resolveType() {
-  if (initialType != nullptr) {
-    type = *initialType;
-  } else {
-    throw TypeError(info, std::format("unable to resolve type"));
-  }
-}
-
-const std::string &LocalVariable::getname() { return name; }
-void LocalVariable::init() {}
-
-void LocalVariable::resolveSymbol() {
-  if (isReference) {
-    if (currentScope().available(name)) {
-      auto sym = currentScope().find(name);
-      if (sym->isa<LocalVariable>()) {
-        auto lclVar = sym->cast<LocalVariable>();
-        initialType = lclVar->initialType;
-      } else {
-        throw SymbolError(info,
-                          std::format("symbol {} is defined but defined as {}",
-                                      name, sym->kind()));
-      }
-    } else {
-      throw SymbolError(
-          info, std::format("local variable \"{}\" is not defined", name));
-    }
-  } else {
-    if (currentScope().existsOnSameScope(name)) {
-      throw SymbolError(
-          info,
-          std::format("symbol {} is already defined on the same scope as a {}",
-                      name, currentScope().find(name)->kind()));
-    } else {
-      registerToCurrentScope();
-    }
   }
 }
 
@@ -186,5 +109,82 @@ llvm::Value *StringExpr::get() {
 void StringExpr::resolveType() { type = StringKind::Apply(value.size() + 1); };
 
 std::string StringExpr::value_str() { return std::format("\"{}\"", value); };
+
+// LocalVar
+
+LocalVar::LocalVar(const std::string &name, Type &ty)
+    : name{name}, initialType{ty}, Variable{name} {};
+
+void LocalVar::allocate() { pointer = builder->CreateAlloca(type, nullptr); };
+
+llvm::Value *LocalVar::get() { return builder->CreateLoad(type, pointer); };
+
+void LocalVar::set(Value &val) { builder->CreateStore(val.get(), pointer); };
+
+llvm::Value *LocalVar::ptr() { return pointer; };
+
+const std::string LocalVar::kind() const { return "local variable"; };
+
+void LocalVar::resolveType() { type = initialType; };
+
+void LocalVar::resolveSymbol() {
+  if (currentScope().existsOnSameScope(name)) {
+    auto s = currentScope().find(name);
+    throw SymbolError(
+        info, std::format("symbol {} is already defined as", name, s->name()));
+  } else {
+    registerToCurrentScope();
+  }
+};
+
+const std::string &LocalVar::getname() { return name; };
+
+// VariableReference
+
+VariableReference::VariableReference(const std::string &name)
+    : Variable{name}, name{name} {}
+
+void VariableReference::resolveSymbol() {
+  if (currentScope().available(name)) {
+    auto symbol = currentScope().find(name);
+    if (symbol->isa<Variable>()) {
+      var = symbol->cast<Variable>();
+    } else {
+      throw SymbolError(info, std::format("symbol \"{}\" is defined as \"{}\"",
+                                          name, symbol->kind()));
+    }
+  } else {
+    throw SymbolError(info, std::format("symbol \"{}\" is not defined", name));
+  }
+}
+
+const std::string VariableReference::kind() const { return var->kind(); }
+llvm::Value *VariableReference::get() { return var->get(); };
+std::string VariableReference::to_string() { return var->to_string(); }
+void VariableReference::set(Value &val) { var->set(val); };
+llvm::Value *VariableReference::ptr() { return var->ptr(); };
+void VariableReference::resolveType() { type = var->type; }
+
+// FunctionReference
+
+const std::string FunctionReference::kind() const { return func->kind(); };
+llvm::Value *FunctionReference::get() { return func->funcPtr(); };
+std::string FunctionReference::to_string() { return func->to_string(); };
+void FunctionReference::resolveSymbol() {
+  if (currentScope().available(name)) {
+    auto symbol = currentScope().find(name);
+    if (symbol->isa<Function>()) {
+      func = symbol->cast<Function>();
+    } else {
+      throw SymbolError(info,
+                        std::format("symbol \"{}\" is not function \"{}\"",
+                                    name, symbol->kind()));
+    }
+  } else {
+    throw SymbolError(info, std::format("symbol \"{}\" is not defined", name));
+  }
+};
+
+void FunctionReference::resolveType() { type = func->type(); };
 
 } // namespace Compiler

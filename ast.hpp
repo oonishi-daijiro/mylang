@@ -26,6 +26,7 @@
 #include "debug.hpp"
 #include "scope.hpp"
 #include "token.hpp"
+#include "utils.hpp"
 // #include "traits.hpp"
 
 namespace Compiler {
@@ -67,13 +68,6 @@ public:
   virtual void gen() = 0;
   virtual std::string to_string() = 0;
 };
-
-// class Semantic : public Code {
-// protected:
-//   virtual void resolveType() {}
-//   virtual void resolveSymbol() {}
-//   virtual void resolveScope() {}
-// };
 
 class Node : public Code {
   friend class Root;
@@ -129,17 +123,7 @@ public:
 
 class ScopeSemantic {
   Scope scp;
-
-  void defaultScopeInitalizerImpl(Node *n) {
-    if (n->isa<ScopeSemantic>()) {
-      auto scpSem = n->cast<ScopeSemantic>();
-      scpSem->scope().setParent(this->scope());
-    }
-    if (n->isa<Symbol>()) {
-      auto symbol = n->cast<Symbol>();
-      symbol->setScope(this->scope());
-    }
-  }
+  void defaultScopeInitalizerImpl(Node *n);
 
 protected:
   std::function<void(Node *)> defaultScopeInitalizer{

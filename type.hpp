@@ -100,4 +100,7 @@ public:
   operator llvm::Type *() { return getTypeInst(); }
 };
 
+bool operator==(const std::vector<const Type *> &,
+                const std::vector<const Type *> &);
+
 } // namespace Compiler

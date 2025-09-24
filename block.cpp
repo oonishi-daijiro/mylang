@@ -19,9 +19,7 @@ void Block::setParentFunc(llvm::Function *f) { parentFunc = f; }
 void Block::setReturnType(const Type &type) { returnType = type; }
 
 void Block::gen() {
-  auto bb = llvm::BasicBlock::Create(*context, name, parentFunc);
 
-  builder->SetInsertPoint(bb);
   auto retbb = llvm::BasicBlock::Create(*context, "return");
   llvm::AllocaInst *retptr = nullptr;
   if (returnType != "void") {

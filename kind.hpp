@@ -1,8 +1,9 @@
 #pragma once
 
+#include "function.hpp"
 #include "type.hpp"
-#include "type_traits.hpp"
 #include <llvm/IR/DerivedTypes.h>
+#include <llvm/IR/Function.h>
 
 namespace Compiler {
 
@@ -67,6 +68,20 @@ class StringKind : public ArrayKind {
 public:
   StringKind(size_t s);
   static Type Apply(size_t size);
+};
+
+class FunctionSignature;
+
+class FunctionKind : public Kind {
+  const FunctionSignature &sig;
+  llvm::FunctionType *funcTy;
+
+public:
+  FunctionKind(const FunctionSignature &, llvm::FunctionType *);
+  virtual std::string name() override;
+  static Type Apply(const FunctionSignature &sig);
+  llvm::FunctionType *funcType();
+  const FunctionSignature &signature() const;
 };
 
 class PointerKind : public Kind {};

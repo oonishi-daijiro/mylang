@@ -43,7 +43,7 @@ std::string StringExpr::to_string() {
   return std::format("[String: \"{}\"]", value);
 }
 
-std::string LocalVariable::to_string() {
+std::string LocalVar::to_string() {
   return std::format("[LocalVariable:\"{}\" : {}]", name, type.name());
 }
 

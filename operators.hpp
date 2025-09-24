@@ -7,6 +7,7 @@
 #include <llvm/IR/Type.h>
 #include <llvm/IR/Value.h>
 #include <llvm/Support/Casting.h>
+#include <vector>
 
 #include "ast.hpp"
 #include "errors.hpp"
@@ -178,6 +179,16 @@ public:
   virtual void resolveType() override;
 };
 
-class CallOperator : public Operator {};
+class CallOperator : public Operator {
+  std::vector<Value *> arguments;
+  Value &callable;
+
+public:
+  CallOperator(Expression *callable, std::vector<Expression *> &&arg);
+
+  virtual std::string kind() override;
+  virtual void resolveType() override;
+  virtual llvm::Value *get() override;
+};
 
 }; // namespace Compiler

@@ -3,6 +3,7 @@
 
 #include <llvm/IR/Function.h>
 #include <llvm/IR/Value.h>
+#include <llvm/Support/CodeGen.h>
 #include <llvm/Support/Error.h>
 #include <optional>
 #include <tuple>
@@ -24,8 +25,11 @@
 
 namespace Compiler {
 Program *Parser::parseProgram() {
-  auto func = parseFunction();
-  return new Program(*func);
+  std::vector<Function *> functions{};
+  while ((tokitr + 1)->kind != token_kind::of<"eof">) {
+    functions.emplace_back(parseFunction());
+  }
+  return new Program(std::move(functions));
 }
 
 Function *Parser::parseFunction() {
@@ -266,19 +270,32 @@ Expression *Parser::parseUnary() {
 }
 
 Expression *Parser::parseArrayLiteral() {
-  std::vector<Expression *> elements{};
+  auto list = parseCommaList(token_kind::of<"right_square_bracket">);
+  expect(token_kind::of<"right_square_bracket">);
+  return new ArrayExpr(std::move(list));
+}
 
-  while ((tokitr + 1)->kind != token_kind::of<"right_square_bracket">) {
+Expression *Parser::parseIndexing(Expression *primary) {
+  if (consume(token_kind::of<"left_square_bracket">)) {
+    Expression *index = parseExpression();
+    expect(token_kind::of<"right_square_bracket">);
+    primary = new IndexingOperator(primary, index);
+  }
+  return primary;
+}
+
+std::vector<Expression *> Parser::parseCommaList(token_kind termination) {
+  std::vector<Expression *> elements{};
+  while ((tokitr + 1)->kind != termination) {
     auto expr = parseExpression();
     elements.emplace_back(expr);
-    if ((tokitr + 1)->kind == token_kind::of<"right_square_bracket">) {
-      ++tokitr;
+    if ((tokitr + 1)->kind == termination) {
       break;
     } else {
       expect(token_kind::of<"comma">);
     }
   }
-  return new ArrayExpr{std::move(elements)};
+  return elements;
 }
 
 Expression *Parser::parsePrimary() {
@@ -291,7 +308,15 @@ Expression *Parser::parsePrimary() {
   } else if (consume(token_kind::of<"integer_literal">)) {
     primary = new IntegerExpr(std::atoi(tokitr->value.c_str()));
   } else if (consume(token_kind::of<"symbol">)) {
-    primary = new LocalVariable(tokitr->value);
+    auto name = tokitr->value;
+    if (consume(token_kind::of<"left_paren">)) {
+      auto list = parseCommaList(token_kind::of<"right_paren">);
+      expect(token_kind::of<"right_paren">);
+      auto funcRef = new FunctionReference(name);
+      primary = new CallOperator(funcRef, std::move(list));
+    } else {
+      primary = new VariableReference(name);
+    }
     if (consume(token_kind::of<"left_square_bracket">)) {
       Expression *index = parseExpression();
       expect(token_kind::of<"right_square_bracket">);
@@ -300,10 +325,10 @@ Expression *Parser::parsePrimary() {
   } else if (consume(token_kind::of<"boolean_literal">)) {
     primary = new BooleanExpr(tokitr->value == "true" ? true : false);
   } else if (consume(token_kind::of<"left_square_bracket">)) {
-    primary = parseArrayLiteral();
+    primary = parseIndexing(parseArrayLiteral());
   } else if (consume(token_kind::of<"string_literal">)) {
     auto val = tokitr->value;
-    primary = new StringExpr(val);
+    primary = parseIndexing(new StringExpr(val));
   } else {
     std::string err =
         std::format("[unexpected token] expected primary expression but {}",

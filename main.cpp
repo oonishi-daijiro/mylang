@@ -74,9 +74,9 @@ int main(int argc, char **argv) {
     auto compiler = util::createCompiler(std::move(tsm));
     std::cout << "create compiler" << std::endl;
 
-    auto f = compiler->lookup("hoge")->toPtr<int()>();
+    auto f = compiler->lookup("hoge")->toPtr<int(int)>();
     std::cout << std::boolalpha;
-    std::cout << "return:" << f() << std::endl;
+    std::cout << "return:" << f(100) << std::endl;
   } catch (Compiler::Error &err) {
     util::printErrorSourceLine(source, err);
   } catch (std::runtime_error &e) {

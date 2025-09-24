@@ -87,7 +87,8 @@ class Parser {
   // add        = mul ("+" mul | "-" mul)*
   // mul        = unary ("*" unary | "/" unary)*
   // unary      = (("+" | "-")? primary)| primary++ | primary--
-  // primary    = (literal | symbol | funccall | array_indexing) | "(" expr ")"
+  // primary    = (literal | symbol | funccall | array_indexing | array_expr) |
+  // "(" expr ")"
 
   // literal    = #doule_literal | #integer_literal | #string_literal |
   // array_literal
@@ -117,7 +118,9 @@ class Parser {
   Expression *parseUnary();
   Expression *parsePrimary();
   Expression *parseArrayLiteral();
-  Expression *parseArrayIndexing();
+
+  Expression *parseIndexing(Expression *);
+  std::vector<Expression *> parseCommaList(token_kind);
 
 public:
   Parser() = delete;

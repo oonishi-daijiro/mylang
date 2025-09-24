@@ -43,7 +43,7 @@ public:
 };
 
 class MutableLocalVarDeclaration final : public Statement {
-  LocalVariable *var{nullptr};
+  LocalVar *var{nullptr};
   Value &initVal;
 
 public:

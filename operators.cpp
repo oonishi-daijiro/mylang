@@ -1,6 +1,8 @@
 
 
+#include <algorithm>
 #include <llvm/IR/Value.h>
+#include <sstream>
 #include <stdexcept>
 
 #include "errors.hpp"
@@ -25,7 +27,8 @@ std::string GeOperator::kind() { return ">="; }
 std::string MinusOperator::kind() { return "(-)"; }
 std::string IncrementOperator::kind() { return "(...)++"; }
 std::string DecrementOperator::kind() { return "(...)--"; }
-
+std::string kind() { return "[]"; }
+std::string CallOperator::kind() { return "func(...)"; };
 // magma operator
 
 MagmaOperator::MagmaOperator(Expression *lv, Expression *rv)
@@ -130,8 +133,6 @@ llvm::Value *DecrementOperator::get() {
 IndexingOperator::IndexingOperator(Expression *arraylike, Expression *index)
     : Operator{{arraylike, index}}, index{*index}, arraylike{*arraylike} {}
 
-std::string kind() { return "[]"; }
-
 void IndexingOperator::set(Value &val) {
   if (arraylike.type.kind()->isa<StringKind>()) {
     throw TypeError(info, std::format("cannot set value to string literal"));
@@ -173,6 +174,59 @@ void IndexingOperator::resolveType() {
   } else {
     type = arraylike.type.kind()->cast<ArrayKind>()->element();
   }
+}
+
+// CallOperator
+
+CallOperator::CallOperator(Expression *callable,
+                           std::vector<Expression *> &&args)
+    : callable{*callable}, Operator{callable} {
+  for (auto &&a : args) {
+    appendChild(a);
+    arguments.emplace_back(a);
+  }
+}
+
+void CallOperator::resolveType() {
+  if (!callable.type.kind()->isa<FunctionKind>()) {
+    throw TypeError(info,
+                    std::format("{} is not function", callable.type.name()));
+  } else {
+    auto func = callable.type.kind()->cast<FunctionKind>();
+    std::vector<const Type *> passedArgTy{};
+    for (auto &&v : arguments) {
+      passedArgTy.emplace_back(&v->type);
+    }
+
+    if (passedArgTy.size() != func->signature().arguments().size()) {
+      throw TypeError(
+          info, std::format(
+                    "invalid function arguments. requested {} arguments but {}",
+                    func->signature().arguments().size(), passedArgTy.size()));
+    } else {
+      if (passedArgTy == func->signature().argType()) {
+        type = func->signature().returnType().value();
+      } else {
+        std::stringstream sigArgStr;
+        std::stringstream passedArgStr;
+
+        auto sigArg = func->signature().argType();
+        for (int i = 0; i < sigArg.size(); i++) {
+          sigArgStr << sigArg[i]->name() << (i < sigArg.size() - 1 ? "," : "");
+          passedArgStr << passedArgTy[i]->name()
+                       << (i < sigArg.size() - 1 ? "," : "");
+        }
+        throw TypeError(info, std::format("argument type mismatching {} vs {}",
+                                          sigArgStr.str(), passedArgStr.str()));
+      }
+    }
+  }
+};
+
+llvm::Value *CallOperator::get() {
+  auto fn = callable.type.trait()->expect<Callable>();
+  auto ret = fn->call(callable, arguments);
+  return ret;
 }
 
 }; // namespace Compiler

@@ -1,7 +1,7 @@
-function hoge(a: integer, b: double) {
-  for (let i = 0; i < 100; i++) {
-    if (i == 0) {
-      return 100;
-    }
-  }
+function some(val: integer) {
+  return 100;
+}
+
+function hoge(hoge: integer) {
+  return hoge;
 }

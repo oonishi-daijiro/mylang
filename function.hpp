@@ -5,10 +5,13 @@
 #include "expressions.hpp"
 #include "symbol.hpp"
 #include "type.hpp"
+#include "value.hpp"
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/Function.h>
+#include <llvm/IR/Instructions.h>
 #include <llvm/IR/Value.h>
 #include <optional>
+
 #include <sstream>
 
 namespace Compiler {
@@ -26,7 +29,7 @@ public:
 class FunctionSignature {
   std::optional<Type> ret{std::nullopt};
   std::vector<ArgumentInfo> args;
-  std::vector<Type> argTy;
+  std::vector<const Type *> argTy;
 
 public:
   FunctionSignature(const std::vector<ArgumentInfo> &&argument,
@@ -38,14 +41,13 @@ public:
   const decltype(args) &arguments() const;
   void setInferedReturnType(const Type &t);
 
-  const std::vector<Type> &argType() const;
-  std::string to_string();
+  const std::vector<const Type *> &argType() const;
+  const std::string to_string() const;
 };
 
-class FunctionArgument : public Expression,
-                         public Symbol,
-                         public SymbolSemantic {
-  llvm::Value *argSubstance;
+class FunctionArgument : public Variable {
+  llvm::Value *argSubstance{nullptr};
+  llvm::AllocaInst *argCopy{nullptr};
   std::string name;
   Type initTy;
 
@@ -54,10 +56,18 @@ public:
 
   virtual void resolveSymbol() override;
   virtual void resolveType() override;
-  virtual llvm::Value *get() override;
   virtual std::string to_string() override;
+  virtual llvm::Value *get() override;
+  virtual void set(Value &) override;
+  virtual llvm::Value *ptr() override;
   virtual const std::string kind() const override;
-  void setArgSubstance(llvm::Value *ref);
+
+  void setArgSubstance(llvm::Value *);
+  void arg2local() {
+    argCopy =
+        builder->CreateAlloca(initTy, nullptr, std::format("arg_{}", name));
+    builder->CreateStore(argSubstance, argCopy);
+  }
 };
 
 class Function : public Node,
@@ -70,10 +80,15 @@ class Function : public Node,
   std::string name{""};
   llvm::Function *func{nullptr};
   std::vector<FunctionArgument *> argments{};
+  Type ty;
   Type inferReturnType();
 
 public:
   Function(const std::string &name, const FunctionSignature &sig, Block *body);
+
+  llvm::Value *funcPtr();
+  const Type &type();
+
   virtual std::string to_string() override;
   virtual void gen() override;
   virtual void resolveScope() override;
@@ -83,7 +98,5 @@ public:
 
   virtual const std::string kind() const override { return "function"; }
 };
-
-class FunctionReference : public Expression {};
 
 } // namespace Compiler

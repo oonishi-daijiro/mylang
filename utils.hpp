@@ -12,6 +12,7 @@
 #include <llvm/Support/FileSystem.h>
 
 #include <memory>
+#include <stdexcept>
 #include <string>
 
 #include "errors.hpp"
@@ -54,5 +55,26 @@ concept NOPTR_NOREF = requires() {
   !std::is_pointer_v<T>;
   !std::is_reference_v<T>;
 };
+
+template <NOPTR_NOREF T>
+bool isa(auto *ptr)
+  requires(std::is_pointer_v<decltype(ptr)>)
+{
+  return dynamic_cast<T *>(ptr);
+}
+
+template <NOPTR_NOREF T>
+T *cast(auto *ptr)
+  requires(std::is_pointer_v<decltype(ptr)>)
+{
+  if (isa<T>(ptr)) {
+    return dynamic_cast<T *>(ptr);
+  } else {
+    std::runtime_error(std::format("cannot cast {} to {}",
+                                   typeid(decltype(ptr)).name(),
+                                   typeid(T).name()));
+    return nullptr;
+  }
+}
 
 } // namespace util

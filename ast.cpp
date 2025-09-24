@@ -109,7 +109,6 @@ void Root::gen() {
     rootNode->walkAllChildlenDFPO([](Node *node) { node->init(); });
     std::cout << "===============  AST  ===============" << std::endl;
     print();
-
     rootNode->gen();
   }
 }
@@ -143,5 +142,18 @@ void LLVMBuilder::init(contextptr_t ctx, moduleptr_t md) {
 };
 
 Code::moduleptr_t LLVMBuilder::release() { return std::move(llvmModule); }
+
+void ScopeSemantic::defaultScopeInitalizerImpl(Node *n) {
+  if (n->isa<ScopeSemantic>()) {
+    auto scpSem = n->cast<ScopeSemantic>();
+    scpSem->scope().setParent(this->scope());
+  }
+  if (n->isa<Symbol>()) {
+    auto symbol = n->cast<Symbol>();
+    if (n != util::cast<Node>(this)) {
+      symbol->setScope(this->scope());
+    }
+  }
+}
 
 } // namespace Compiler

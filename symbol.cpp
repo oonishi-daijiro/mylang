@@ -1,5 +1,6 @@
 #include "symbol.hpp"
 #include "scope.hpp"
+#include "utils.hpp"
 
 namespace Compiler {
 void Symbol::setScope(Scope &scope) { s = &scope; }

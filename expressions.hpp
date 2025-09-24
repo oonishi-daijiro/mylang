@@ -1,11 +1,7 @@
 #pragma once
 
-#include <cstddef>
 #include <cstdint>
-#include <format>
-#include <initializer_list>
 #include <llvm/IR/DerivedTypes.h>
-#include <numeric>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -18,12 +14,8 @@
 
 #include "ast.hpp"
 #include "errors.hpp"
-#include "kind.hpp"
-#include "scope.hpp"
 #include "symbol.hpp"
 #include "type.hpp"
-#include "type_traits.hpp"
-#include "utils.hpp"
 #include "value.hpp"
 
 namespace Compiler {
@@ -68,6 +60,7 @@ class DoubleExpr : public Expression,
 
 public:
   DoubleExpr(double val);
+  virtual ~DoubleExpr() = default;
 
   virtual llvm::Value *get() override;
   virtual void resolveType() override;
@@ -82,6 +75,7 @@ class IntegerExpr : public Expression,
 
 public:
   IntegerExpr(int32_t val);
+  virtual ~IntegerExpr() = default;
 
   virtual llvm::Value *get() override;
   virtual void resolveType() override;
@@ -97,6 +91,8 @@ class BooleanExpr final : public Expression,
 
 public:
   BooleanExpr(bool b);
+  virtual ~BooleanExpr() = default;
+
   virtual llvm::Value *get() override;
   virtual void resolveType() override;
   virtual std::string to_string() override;
@@ -109,6 +105,8 @@ class ArrayExpr final : public Expression {
 
 public:
   ArrayExpr(std::vector<Expression *> &&initExpr);
+  virtual ~ArrayExpr() = default;
+
   virtual llvm::Value *get() override;
   virtual void resolveType() override;
   virtual std::string to_string() override;
@@ -121,6 +119,8 @@ class StringExpr final : public Expression,
 
 public:
   StringExpr(const std::string &str);
+  virtual ~StringExpr() = default;
+
   virtual llvm::Value *get() override;
   virtual std::string to_string() override;
   virtual void resolveType() override;
@@ -130,34 +130,72 @@ public:
 class Substance : public virtual Expression {
 public:
   virtual ~Substance() = default;
+
   virtual void set(Value &) = 0;
   virtual llvm::Value *ptr() = 0;
 };
 
-class LocalVariable final : public Substance,
-                            public Symbol,
-                            public SymbolSemantic {
-  Type *initialType;
+class Variable : public Substance, public Symbol, public SymbolSemantic {
+public:
+  Variable(const std::string &name) : Symbol{name} {}
+  virtual ~Variable() = default;
+};
+
+class LocalVar : public Variable {
+  Type &initialType;
+  Type resolvedType;
+  const std::string name;
   llvm::AllocaInst *pointer{nullptr};
-  std::string name;
-  const bool isReference;
 
 public:
-  LocalVariable(const std::string &name, Type *type);
-  LocalVariable(const std::string &name);
-  void allocate();
+  LocalVar(const std::string &name, Type &ty);
+  virtual ~LocalVar() = default;
 
+  void allocate();
   virtual std::string to_string() override;
   virtual llvm::Value *get() override;
   virtual void set(Value &val) override;
   virtual llvm::Value *ptr() override;
-  virtual const std::string kind() const override { return "LocalVariable"; };
-
+  virtual const std::string kind() const override;
   virtual void resolveType() override;
   virtual void resolveSymbol() override;
-  virtual void init() override;
-
   const std::string &getname();
+};
+
+class VariableReference : public Variable {
+  Variable *var{nullptr};
+  std::string name;
+
+public:
+  VariableReference(const std::string &name);
+  virtual ~VariableReference() = default;
+
+  virtual llvm::Value *get() override;
+  virtual void set(Value &val) override;
+  virtual llvm::Value *ptr() override;
+  virtual std::string to_string() override;
+  virtual const std::string kind() const override;
+  virtual void resolveSymbol() override;
+  virtual void resolveType() override;
+};
+
+class Function;
+class FunctionReference : public Expression,
+                          public Symbol,
+                          public SymbolSemantic {
+  Function *func;
+  std::string name;
+
+public:
+  FunctionReference(const std::string &funcName)
+      : Symbol{funcName}, name{funcName} {}
+  virtual ~FunctionReference() = default;
+
+  virtual const std::string kind() const override;
+  virtual llvm::Value *get() override;
+  virtual std::string to_string() override;
+  virtual void resolveSymbol() override;
+  virtual void resolveType() override;
 };
 
 } // namespace Compiler

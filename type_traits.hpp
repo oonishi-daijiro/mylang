@@ -56,6 +56,12 @@ public:
   virtual llvm::Value *at(Value &arraylike, Value &idx) = 0;
 };
 
+class Callable : virtual public TypeTrait {
+public:
+  static inline std::string name{"Callable"};
+  virtual llvm::Value *call(Value &, std::vector<Value *> &arg) = 0;
+};
+
 // implmentation of builtin types
 
 class DoubleTyTrait : virtual public Ordered {
@@ -119,7 +125,6 @@ public:
 class ArrayTyTrait : virtual public Indexable {
 public:
   virtual std::string name() override { return "ArrayTyTrait"; }
-
   virtual llvm::Value *at(Value &arraylike, Value &idx) override;
 };
 
@@ -130,9 +135,16 @@ public:
 };
 
 class CharacterTyTrait : virtual public Boolean {
+public:
   virtual std::string name() override { return "CharacterTyTrait"; }
   virtual llvm::Value *eq(Value &lv, Value &rv) override;
   virtual llvm::Value *ne(Value &lv, Value &rv) override;
+};
+
+class FunctionTyTrait : virtual public Callable {
+public:
+  virtual std::string name() override { return "FunctionTyTrait"; }
+  virtual llvm::Value *call(Value &, std::vector<Value *> &arg) override;
 };
 
 } // namespace Compiler

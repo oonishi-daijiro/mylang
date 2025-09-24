@@ -4,6 +4,7 @@
 #include "type.hpp"
 #include "utils.hpp"
 #include "value.hpp"
+#include <algorithm>
 #include <llvm/ADT/ArrayRef.h>
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/Value.h>
@@ -155,6 +156,25 @@ llvm::Value *CharacterTyTrait::eq(Value &lv, Value &rv) {
 
 llvm::Value *CharacterTyTrait::ne(Value &lv, Value &rv) {
   return builder->CreateICmpNE(lv.get(), rv.get());
+}
+
+// function type trait
+llvm::Value *FunctionTyTrait::call(Value &funcPtr, std::vector<Value *> &arg) {
+  std::vector<llvm::Value *> argVal;
+  for (auto &&e : arg) {
+    argVal.emplace_back(e->get());
+  }
+
+  llvm::FunctionType *funcTy = nullptr;
+  if (funcPtr.type.kind()->isa<FunctionKind>()) {
+    funcTy = funcPtr.type.kind()->cast<FunctionKind>()->funcType();
+  } else {
+    std::runtime_error(
+        std::format("value {} is not kind of function type but {}",
+                    funcPtr.type.name(), funcPtr.type.kind()->name()));
+  }
+  auto ret = builder->CreateCall(funcTy, funcPtr.get(), argVal);
+  return ret;
 }
 
 } // namespace Compiler
