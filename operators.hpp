@@ -65,14 +65,14 @@ public:
 
 class UnaryAssignOperator : public Operator {
 protected:
-  Substance *o;
+  Expression *o;
 
 public:
   UnaryAssignOperator(Expression *sub) : Operator{sub} {
-    if (!sub->isa<Substance>()) {
+    if (!sub->implements<Substance>()) {
       throw TypeError(sub->info, std::format("this value is not assignable"));
     } else {
-      o = sub->cast<Substance>();
+      o = sub;
     }
   }
 
@@ -164,7 +164,7 @@ class GeOperator final : public BooleanOperator {
   virtual llvm::Value *get() override;
 };
 
-class IndexingOperator : public virtual Operator, public virtual Substance {
+class IndexingOperator : public Operator, public Substance {
   Expression &index;
   Expression &arraylike;
 

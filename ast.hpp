@@ -65,6 +65,13 @@ public:
     return dynamic_cast<T *>(this);
   }
 
+  template <typename T>
+  bool implements()
+    requires(std::is_abstract_v<T>)
+  {
+    return isa<T>(this);
+  }
+
   virtual void gen() = 0;
   virtual std::string to_string() = 0;
 };

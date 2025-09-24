@@ -34,7 +34,9 @@ public:
   };
   virtual llvm::Value *get() override = 0;
 
-  virtual std::string to_string() override { return "[***expression***]"; };
+  virtual std::string to_string() override {
+    return "[***unknown_expression***]";
+  };
 };
 
 class Literal {
@@ -127,7 +129,7 @@ public:
   virtual std::string value_str() override;
 };
 
-class Substance : public virtual Expression {
+class Substance {
 public:
   virtual ~Substance() = default;
 
@@ -135,7 +137,10 @@ public:
   virtual llvm::Value *ptr() = 0;
 };
 
-class Variable : public Substance, public Symbol, public SymbolSemantic {
+class Variable : public Substance,
+                 public Symbol,
+                 public SymbolSemantic,
+                 public Expression {
 public:
   Variable(const std::string &name) : Symbol{name} {}
   virtual ~Variable() = default;

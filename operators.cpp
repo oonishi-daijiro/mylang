@@ -153,6 +153,8 @@ llvm::Value *IndexingOperator::ptr() {
   if (index.isa<ConstantEval<int32_t>>()) {
     auto idx = index.cast<ConstantEval<int32_t>>()->val();
     auto arraysize = arraylike.type.kind()->cast<ArrayKind>()->size();
+
+    
     if (idx >= arraysize) {
       throw RangeError(
           this->info,
