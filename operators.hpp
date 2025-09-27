@@ -7,9 +7,11 @@
 #include <llvm/IR/Type.h>
 #include <llvm/IR/Value.h>
 #include <llvm/Support/Casting.h>
+#include <variant>
 #include <vector>
 
 #include "ast.hpp"
+#include "debug.hpp"
 #include "errors.hpp"
 #include "expressions.hpp"
 #include "kind.hpp"
@@ -65,18 +67,24 @@ public:
 
 class UnaryAssignOperator : public Operator {
 protected:
-  Expression *o;
+  Value &sub;
+  const DebugInfo &expressionInfo;
+  Substance<Mutable> *mutSub;
 
 public:
-  UnaryAssignOperator(Expression *sub) : Operator{sub} {
-    if (!sub->implements<Substance>()) {
-      throw TypeError(sub->info, std::format("this value is not assignable"));
+  UnaryAssignOperator(Expression *expr)
+      : Operator{expr}, sub{*expr}, expressionInfo(expr->info) {}
+
+  virtual void resolveType() override { type = sub.type; }
+  virtual void init() override {
+    if (!sub.hasSubstanceOf<Mutable>()) {
+      throw TypeError(expressionInfo,
+                      std::format("this value is not assignable"));
     } else {
-      o = sub;
+      auto maybeSub = sub.getSubstance();
+      mutSub = std::get<Substance<Mutable> *>(maybeSub);
     }
   }
-
-  virtual void resolveType() { type = o->type; }
 };
 
 class MinusOperator final : public UnaryOperator {
@@ -164,7 +172,7 @@ class GeOperator final : public BooleanOperator {
   virtual llvm::Value *get() override;
 };
 
-class IndexingOperator : public Operator, public Substance {
+class IndexingOperator : public Operator, public Substance<Mutable> {
   Expression &index;
   Expression &arraylike;
 

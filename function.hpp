@@ -71,6 +71,8 @@ public:
 };
 
 class Function : public Node,
+                 public Value,
+                 public Substance<Immutable>,
                  public Symbol,
                  public SymbolSemantic,
                  public TypeSemantic,
@@ -80,14 +82,10 @@ class Function : public Node,
   std::string name{""};
   llvm::Function *func{nullptr};
   std::vector<FunctionArgument *> argments{};
-  Type ty;
   Type inferReturnType();
 
 public:
   Function(const std::string &name, const FunctionSignature &sig, Block *body);
-
-  llvm::Value *funcPtr();
-  const Type &type();
 
   virtual std::string to_string() override;
   virtual void gen() override;
@@ -95,6 +93,9 @@ public:
   virtual void resolveSymbol() override;
   virtual void resolveType() override;
   virtual void init() override;
+
+  virtual llvm::Value *get() override { return func; };
+  virtual llvm::Value *ptr() override { return func; };
 
   virtual const std::string kind() const override { return "function"; }
 };

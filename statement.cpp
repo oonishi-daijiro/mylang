@@ -1,4 +1,5 @@
 #include <llvm/IR/BasicBlock.h>
+#include <optional>
 #include <string>
 
 #include <llvm/IR/Value.h>
@@ -7,6 +8,7 @@
 #include "errors.hpp"
 #include "expressions.hpp"
 #include "statement.hpp"
+#include "value.hpp"
 
 namespace Compiler {
 
@@ -30,16 +32,19 @@ void Assign::gen() {
   if (lv.type != rv.type) {
     throw TypeError(this->info, std::format("type missmatching {} vs {}",
                                             lv.type.name(), rv.type.name()));
+  } else {
+    auto maybeMutSub = lv.getSubstance();
+    auto mutsub = std::get<Substance<Mutable> *>(maybeMutSub);
+    mutsub->set(rv);
   }
-  slv->set(rv);
 }
 
 void Assign::init() {
-  if (!lv.isa<Substance>()) {
-    throw SyntaxError(info, std::format("cannot assign value to rvalue of {}",
-                                        lv.to_string()));
-  } else {
-    slv = lv.cast<Substance>();
+  if (!lv.hasSubstanceOf<Mutable>()) {
+    throw SyntaxError(
+        info,
+        std::format("cannot assign value to immutable/non-substance object {}",
+                    lv.type.name()));
   }
 }
 // return

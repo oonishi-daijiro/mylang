@@ -1,7 +1,5 @@
-function some(val: integer) {
-  return 100;
-}
-
-function hoge(hoge: integer) {
-  return hoge;
+function hoge() {
+  let helloworld = "hello world";
+  let fuckyou = "fuckyou";
+  helloworld = fuckyou;
 }

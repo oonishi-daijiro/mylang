@@ -26,11 +26,11 @@ public:
   virtual bool operator==(const Symbol &r) final;
   virtual bool operator!=(const Symbol &r) final;
 
-  template <typename T>
+  template <typename... T>
   bool isa()
-    requires(std::is_base_of_v<Symbol, T>)
+    requires(std::is_base_of_v<Symbol, T> && ...)
   {
-    return dynamic_cast<T *>(this) != nullptr;
+    return ((dynamic_cast<T *>(this) != nullptr) || ...);
   }
 
   template <typename T> T *expect() {

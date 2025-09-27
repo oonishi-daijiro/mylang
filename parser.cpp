@@ -309,13 +309,13 @@ Expression *Parser::parsePrimary() {
     primary = new IntegerExpr(std::atoi(tokitr->value.c_str()));
   } else if (consume(token_kind::of<"symbol">)) {
     auto name = tokitr->value;
+    auto symbol = new SymbolReferenceExpr(name);
     if (consume(token_kind::of<"left_paren">)) {
       auto list = parseCommaList(token_kind::of<"right_paren">);
       expect(token_kind::of<"right_paren">);
-      auto funcRef = new FunctionReference(name);
-      primary = new CallOperator(funcRef, std::move(list));
+      primary = new CallOperator(symbol, std::move(list));
     } else {
-      primary = new VariableReference(name);
+      primary = symbol;
     }
     if (consume(token_kind::of<"left_square_bracket">)) {
       Expression *index = parseExpression();

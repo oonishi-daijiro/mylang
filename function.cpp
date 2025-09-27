@@ -88,9 +88,7 @@ void FunctionArgument::set(Value &val) {
 
 llvm::Value *FunctionArgument::ptr() { return argCopy; }
 
-const std::string FunctionArgument::kind() const {
-  return std::format("function argment {}", name);
-}
+const std::string FunctionArgument::kind() const { return "argment"; }
 
 void FunctionArgument::setArgSubstance(llvm::Value *sub) {
   argSubstance = sub;
@@ -143,11 +141,11 @@ void Function::resolveType() {
   }
 
   body.setReturnType(sig.returnType().value());
-  ty = FunctionKind::Apply(sig);
+  type = FunctionKind::Apply(sig);
 }
 
 void Function::gen() {
-  auto bb = llvm::BasicBlock::Create(*context, name, func);
+  auto bb = llvm::BasicBlock::Create(*context, "", func);
   builder->SetInsertPoint(bb);
   for (auto &&arg : argments) {
     arg->arg2local();
@@ -188,8 +186,5 @@ void Function::init() {
     argments[i]->setArgSubstance(func->getArg(i));
   }
 }
-
-llvm::Value *Function::funcPtr() { return func; }
-const Type &Function::type() { return ty; }
 
 }; // namespace Compiler

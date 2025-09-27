@@ -1,12 +1,16 @@
 #include <llvm/IR/Constant.h>
 #include <llvm/IR/Constants.h>
+#include <llvm/IR/Value.h>
 #include <vector>
 
 #include "errors.hpp"
 #include "expressions.hpp"
+#include "function.hpp"
 #include "kind.hpp"
 #include "symbol.hpp"
 #include "type.hpp"
+#include "utils.hpp"
+#include "value.hpp"
 
 namespace Compiler {
 
@@ -139,52 +143,63 @@ void LocalVar::resolveSymbol() {
 
 const std::string &LocalVar::getname() { return name; };
 
-// VariableReference
+// SymbolReferenceExpr
 
-VariableReference::VariableReference(const std::string &name)
-    : Variable{name}, name{name} {}
-
-void VariableReference::resolveSymbol() {
+void SymbolReferenceExpr::resolveSymbol() {
   if (currentScope().available(name)) {
-    auto symbol = currentScope().find(name);
-    if (symbol->isa<Variable>()) {
-      var = symbol->cast<Variable>();
+    sym = currentScope().find(name);
+    if (sym->isa<Variable, Function>()) {
+      this->referValue = sym->cast<Value>();
+
     } else {
-      throw SymbolError(info, std::format("symbol \"{}\" is defined as \"{}\"",
-                                          name, symbol->kind()));
+      throw SymbolError(info,
+                        std::format("symbol {} does not refer to value", name));
     }
   } else {
-    throw SymbolError(info, std::format("symbol \"{}\" is not defined", name));
+    throw SymbolError(info, std::format("symbol {} is not defined", name));
   }
 }
 
-const std::string VariableReference::kind() const { return var->kind(); }
-llvm::Value *VariableReference::get() { return var->get(); };
-std::string VariableReference::to_string() { return var->to_string(); }
-void VariableReference::set(Value &val) { var->set(val); };
-llvm::Value *VariableReference::ptr() { return var->ptr(); };
-void VariableReference::resolveType() { type = var->type; }
+llvm::Value *SymbolReferenceExpr::ptr() {
+  auto maybeSub = referValue->getSubstance();
 
-// FunctionReference
+  auto visitor = util::visitors{
+      [](Substance<Mutable> *mut) -> llvm::Value * { return mut->ptr(); },
+      [](Substance<Immutable> *imut) -> llvm::Value * { return imut->ptr(); },
+      [](Value *val) -> llvm::Value * { return nullptr; }};
 
-const std::string FunctionReference::kind() const { return func->kind(); };
-llvm::Value *FunctionReference::get() { return func->funcPtr(); };
-std::string FunctionReference::to_string() { return func->to_string(); };
-void FunctionReference::resolveSymbol() {
-  if (currentScope().available(name)) {
-    auto symbol = currentScope().find(name);
-    if (symbol->isa<Function>()) {
-      func = symbol->cast<Function>();
-    } else {
-      throw SymbolError(info,
-                        std::format("symbol \"{}\" is not function \"{}\"",
-                                    name, symbol->kind()));
-    }
-  } else {
-    throw SymbolError(info, std::format("symbol \"{}\" is not defined", name));
+  auto ptr = std::visit(visitor, maybeSub);
+  if (ptr == nullptr) {
+    throw TypeError(info,
+                    std::format("cannot get pointer of non substance value"));
   }
-};
+  return ptr;
+}
 
-void FunctionReference::resolveType() { type = func->type(); };
+void SymbolReferenceExpr::set(Value &val) {
+  using setFunc = std::function<void(Value &)>;
+
+  auto maybeSub = referValue->getSubstance();
+  auto invalOpFunc = [&](Value &, const std::string &msg) {
+    throw TypeError(info, msg);
+  };
+
+  auto visitor = util::visitors{
+      [&](Substance<Mutable> *mut) -> setFunc {
+        return {[mut](Value &v) { mut->set(v); }};
+      },
+      [&](Substance<Immutable> *imut) -> setFunc {
+        return {[&](Value &v) {
+          invalOpFunc(v, "cannot set value to immutable object");
+        }};
+      },
+      [&](Value *v) -> setFunc {
+        return {[&](Value &v) {
+          invalOpFunc(v, "cannot set value to object that has non-substance");
+        }};
+      }};
+  auto setter = std::visit(visitor, maybeSub);
+  setter(val);
+}
 
 } // namespace Compiler

@@ -69,7 +69,7 @@ public:
   bool implements()
     requires(std::is_abstract_v<T>)
   {
-    return isa<T>(this);
+    return isa<T>();
   }
 
   virtual void gen() = 0;

@@ -17,7 +17,7 @@ namespace Compiler {
 class Kind;
 
 class TypeTrait : public LLVMBuilder {
-  static inline std::map<std::string, std::shared_ptr<TypeTrait>> traitset;
+  static inline std::map<size_t, std::shared_ptr<TypeTrait>> traitset;
 
 public:
   TypeTrait() = default;
@@ -30,8 +30,9 @@ public:
   {
     auto ptr = dynamic_cast<T *>(this);
     if (ptr == nullptr) {
-      throw std::runtime_error(std::format(
-          "type trait \"{}\" is not satisfies trait {}", name(), T::name));
+      throw std::runtime_error(
+          std::format("type trait \"{}\" is not satisfies trait {}",
+                      this->name(), T::name));
     } else {
       return ptr;
     }
@@ -41,25 +42,25 @@ public:
   static inline TypeTrait *New()
     requires(std::is_base_of_v<TypeTrait, T>)
   {
-    auto tr = new T{};
-    if (!traitset.contains(tr->name())) {
+    if (!traitset.contains(util::type_hash<T>())) {
+      auto tr = new T{};
       traitset.emplace(std::piecewise_construct,
-                       std::forward_as_tuple(tr->name()),
+                       std::forward_as_tuple(util::type_hash<T>()),
                        std::forward_as_tuple(tr));
       return tr;
     } else {
-      delete tr;
-      return nullptr;
+      return traitset.at(util::type_hash<T>()).get();
     }
   }
 };
 
 class Type final {
+  static inline std::string unresolved_type_str{"unresolved_type"};
   static inline size_t unresolved_type_hash =
-      std::hash<std::string>{}(std::string{"unresolved_type"});
+      std::hash<std::string>{}(unresolved_type_str);
 
   llvm::Type *inst{nullptr};
-  std::string tname{"unresolved_type"};
+  std::string tname{unresolved_type_str};
   size_t hash{std::hash<std::string>()(tname)};
   TypeTrait *tr{nullptr};
   Kind *k{nullptr};

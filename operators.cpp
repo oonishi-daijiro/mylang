@@ -113,18 +113,18 @@ llvm::Value *GeOperator::get() {
 }
 
 llvm::Value *IncrementOperator::get() {
-  auto trait = o->type.trait()->expect<Field>();
+  auto trait = sub.type.trait()->expect<Field>();
   auto &unit = trait->unit();
-  auto prev = o->get();
-  builder->CreateStore(trait->add(*o, unit), o->ptr());
+  auto prev = sub.get();
+  builder->CreateStore(trait->add(sub, unit), mutSub->ptr());
   return prev;
 }
 
 llvm::Value *DecrementOperator::get() {
-  auto trait = o->type.trait()->expect<Field>();
+  auto trait = sub.type.trait()->expect<Field>();
   auto &unit = trait->unit();
-  auto prev = o->get();
-  builder->CreateStore(trait->sub(*o, unit), o->ptr());
+  auto prev = sub.get();
+  builder->CreateStore(trait->sub(sub, unit), mutSub->ptr());
   return prev;
 }
 
@@ -154,7 +154,6 @@ llvm::Value *IndexingOperator::ptr() {
     auto idx = index.cast<ConstantEval<int32_t>>()->val();
     auto arraysize = arraylike.type.kind()->cast<ArrayKind>()->size();
 
-    
     if (idx >= arraysize) {
       throw RangeError(
           this->info,

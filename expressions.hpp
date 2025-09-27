@@ -1,13 +1,14 @@
 #pragma once
 
 #include <cstdint>
-#include <llvm/IR/DerivedTypes.h>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <variant>
 #include <vector>
 
 #include <llvm/IR/Constants.h>
+#include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/Type.h>
 #include <llvm/IR/Value.h>
@@ -16,6 +17,7 @@
 #include "errors.hpp"
 #include "symbol.hpp"
 #include "type.hpp"
+#include "utils.hpp"
 #include "value.hpp"
 
 namespace Compiler {
@@ -32,6 +34,7 @@ public:
       throw CodeGenError(info, e.what());
     }
   };
+
   virtual llvm::Value *get() override = 0;
 
   virtual std::string to_string() override {
@@ -129,15 +132,7 @@ public:
   virtual std::string value_str() override;
 };
 
-class Substance {
-public:
-  virtual ~Substance() = default;
-
-  virtual void set(Value &) = 0;
-  virtual llvm::Value *ptr() = 0;
-};
-
-class Variable : public Substance,
+class Variable : public Substance<Mutable>,
                  public Symbol,
                  public SymbolSemantic,
                  public Expression {
@@ -167,40 +162,28 @@ public:
   const std::string &getname();
 };
 
-class VariableReference : public Variable {
-  Variable *var{nullptr};
-  std::string name;
+class SymbolReferenceExpr : public Expression,
+                            public SymbolSemantic,
+                            public Symbol,
+                            public Substance<Mutable> {
+  const std::string name;
+  Value *referValue{nullptr};
+  Symbol *sym{nullptr};
 
 public:
-  VariableReference(const std::string &name);
-  virtual ~VariableReference() = default;
+  SymbolReferenceExpr(const std::string &name) : Symbol{name}, name{name} {}
 
-  virtual llvm::Value *get() override;
-  virtual void set(Value &val) override;
+  virtual std::string to_string() override;
+
   virtual llvm::Value *ptr() override;
-  virtual std::string to_string() override;
-  virtual const std::string kind() const override;
+
+  virtual void set(Value &val) override;
+
+  virtual llvm::Value *get() override { return referValue->get(); };
+
+  virtual const std::string kind() const override { return sym->kind(); };
+  virtual void resolveType() override { type = referValue->type; };
   virtual void resolveSymbol() override;
-  virtual void resolveType() override;
-};
-
-class Function;
-class FunctionReference : public Expression,
-                          public Symbol,
-                          public SymbolSemantic {
-  Function *func;
-  std::string name;
-
-public:
-  FunctionReference(const std::string &funcName)
-      : Symbol{funcName}, name{funcName} {}
-  virtual ~FunctionReference() = default;
-
-  virtual const std::string kind() const override;
-  virtual llvm::Value *get() override;
-  virtual std::string to_string() override;
-  virtual void resolveSymbol() override;
-  virtual void resolveType() override;
 };
 
 } // namespace Compiler

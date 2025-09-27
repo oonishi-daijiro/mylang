@@ -12,6 +12,7 @@
 #include <llvm/Support/FileSystem.h>
 
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
 
@@ -56,11 +57,11 @@ concept NOPTR_NOREF = requires() {
   !std::is_reference_v<T>;
 };
 
-template <NOPTR_NOREF T>
+template <NOPTR_NOREF... T>
 bool isa(auto *ptr)
   requires(std::is_pointer_v<decltype(ptr)>)
 {
-  return dynamic_cast<T *>(ptr);
+  return ((dynamic_cast<T *>(ptr) != nullptr) || ...);
 }
 
 template <NOPTR_NOREF T>
@@ -75,6 +76,26 @@ T *cast(auto *ptr)
                                    typeid(T).name()));
     return nullptr;
   }
+}
+
+template <NOPTR_NOREF T> std::optional<T *> safe_cast(auto *ptr) {
+  T *ptrt = dynamic_cast<T *>(ptr);
+  if (ptrt != nullptr) {
+    return {ptrt};
+  } else {
+    return {std::nullopt};
+  }
+}
+
+template <typename... VISITOR> struct visitors : public VISITOR... {
+  using VISITOR::operator()...;
+};
+
+template <typename... V> visitors(V...) -> visitors<V...>;
+
+template <typename T> size_t type_hash() {
+  static T *some;
+  return std::hash<void *>()(&some);
 }
 
 } // namespace util

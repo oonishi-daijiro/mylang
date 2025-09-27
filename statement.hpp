@@ -56,7 +56,6 @@ public:
 class Assign final : public Statement {
   Expression &lv;
   Expression &rv;
-  Substance *slv{nullptr};
 
 public:
   Assign(Expression *lv, Expression *rv);

@@ -68,6 +68,10 @@ std::string CompoundStatement::to_string() {
   return std::format("<CompoundStatement>");
 }
 
+std::string SymbolReferenceExpr::to_string() {
+  return std::format("[SymbolRefExpr:\"{}\" : {}]", name, type.name());
+}
+
 std::string Ret::to_string() { return std::format("<Return>"); }
 std::string IfStatement::to_string() { return "<If>"; }
 std::string ForStatement::to_string() { return "<For>"; }
