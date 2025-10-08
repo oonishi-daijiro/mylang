@@ -96,19 +96,22 @@ void Root::gen() {
         node->cast<ScopeSemantic>()->resolveScope();
       }
     });
-    rootNode->walkAllChildlenDFPO([](Node *node) {
+
+    rootNode->walkAllChildlenBF([](Node *node) {
       if (node->isa<SymbolSemantic>()) {
         node->cast<SymbolSemantic>()->resolveSymbol();
       }
     });
+
     rootNode->walkAllChildlenDFPO([](Node *node) {
       if (node->isa<TypeSemantic>()) {
         node->cast<TypeSemantic>()->resolveType();
       }
     });
-    rootNode->walkAllChildlenDFPO([](Node *node) { node->init(); });
     std::cout << "===============  AST  ===============" << std::endl;
     print();
+
+    rootNode->walkAllChildlenDFPO([](Node *node) { node->init(); });
     rootNode->gen();
   }
 }

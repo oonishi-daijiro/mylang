@@ -34,6 +34,11 @@ class FunctionSignature {
 public:
   FunctionSignature(const std::vector<ArgumentInfo> &&argument,
                     const std::optional<Type> &ret);
+  FunctionSignature(FunctionSignature &&);
+  FunctionSignature(const FunctionSignature &) = delete;
+
+  FunctionSignature &operator=(const FunctionSignature &) = delete;
+  FunctionSignature &operator=(FunctionSignature &&);
 
   bool operator==(const FunctionSignature &signature) const;
 
@@ -77,7 +82,7 @@ class Function : public Node,
                  public SymbolSemantic,
                  public TypeSemantic,
                  public ScopeSemantic {
-  FunctionSignature sig;
+  FunctionSignature signature;
   Block &body;
   std::string name{""};
   llvm::Function *func{nullptr};
@@ -85,7 +90,7 @@ class Function : public Node,
   Type inferReturnType();
 
 public:
-  Function(const std::string &name, const FunctionSignature &sig, Block *body);
+  Function(const std::string &name, FunctionSignature &&sig, Block *body);
 
   virtual std::string to_string() override;
   virtual void gen() override;

@@ -45,7 +45,7 @@ public:
 
   virtual void setScope(Scope &) final;
   virtual void registerToCurrentScope() final;
-  virtual Scope &currentScope() final;
+  virtual Scope &currentScope() const final;
 };
 
 } // namespace Compiler

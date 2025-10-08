@@ -64,11 +64,11 @@ public:
   const size_t size();
 };
 
-class StringKind : public ArrayKind {
-public:
-  StringKind(size_t s);
-  static Type Apply(size_t size);
-};
+// class StringKind : public ArrayKind {
+// public:
+//   StringKind(size_t s);
+//   static Type Apply(size_t size);
+// };
 
 class FunctionSignature;
 

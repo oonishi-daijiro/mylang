@@ -26,6 +26,10 @@ public:
     Type::DefineNewPrimitiveType("void", llvm::Type::getVoidTy(*context), any);
     Type::DefineNewPrimitiveType("char", llvm::IntegerType::get(*context, 8),
                                  any);
+    Type::DefineNewPrimitiveType(
+        "string",
+        llvm::PointerType::get(Type::GetType("char").getTypeInst(), 0),
+        TypeTrait::New<StringTyTrait>());
 
     // Kind::DefineNewKind<ArrayKind>("array");
     // Kind::DefineNewKind<PointerKind>("pointer");

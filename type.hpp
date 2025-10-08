@@ -55,12 +55,12 @@ public:
 };
 
 class Type final {
-  static inline std::string unresolved_type_str{"unresolved_type"};
+  static inline std::string unknown_type_str{"unknown"};
   static inline size_t unresolved_type_hash =
-      std::hash<std::string>{}(unresolved_type_str);
+      std::hash<std::string>{}(unknown_type_str);
 
   llvm::Type *inst{nullptr};
-  std::string tname{unresolved_type_str};
+  std::string tname{unknown_type_str};
   size_t hash{std::hash<std::string>()(tname)};
   TypeTrait *tr{nullptr};
   Kind *k{nullptr};
@@ -98,7 +98,9 @@ public:
   TypeTrait *trait() const;
   llvm::Type *getTypeInst() const;
   Kind *kind();
+
   operator llvm::Type *() { return getTypeInst(); }
+  operator bool() { return hash != unresolved_type_hash; }
 };
 
 bool operator==(const std::vector<const Type *> &,

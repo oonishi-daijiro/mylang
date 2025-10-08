@@ -11,14 +11,29 @@
 #include <llvm/Support/Error.h>
 #include <llvm/Support/FileSystem.h>
 
+#include <filesystem>
+#include <format>
+#include <ios>
 #include <memory>
 #include <optional>
+#include <ostream>
+#include <source_location>
 #include <stdexcept>
 #include <string>
+#include <utility>
 
 #include "errors.hpp"
 
 namespace util {
+
+#define logprefix                                                              \
+  (([]() -> std::string {                                                      \
+    std::source_location location = std::source_location::current();           \
+    std::filesystem::path fpath = location.file_name();                        \
+    return std::format("[{}:{}] ", fpath.filename().string(),                  \
+                       location.line());                                       \
+  })())
+
 std::pair<std::unique_ptr<char[]>, size_t> readFile(std::string_view filepath);
 
 void writeToFile(std::string_view filename, llvm::Module &mainModule);

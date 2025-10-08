@@ -60,7 +60,7 @@ Function *Parser::parseFunction() {
     body = parseBlock();
   }
   FunctionSignature sig{std::move(argtype), ret};
-  return new Function(funcName, sig, body);
+  return new Function(funcName, std::move(sig), body);
 }
 
 Block *Parser::parseBlock() {
@@ -279,9 +279,20 @@ Expression *Parser::parseIndexing(Expression *primary) {
   if (consume(token_kind::of<"left_square_bracket">)) {
     Expression *index = parseExpression();
     expect(token_kind::of<"right_square_bracket">);
-    primary = new IndexingOperator(primary, index);
+    return parseIndexing(new IndexingOperator(primary, index));
+  } else {
+    return primary;
   }
-  return primary;
+}
+
+Expression *Parser::parseCall(Expression *primary) {
+  if (consume(token_kind::of<"left_paren">)) {
+    auto list = parseCommaList(token_kind::of<"right_paren">);
+    expect(token_kind::of<"right_paren">);
+    return parseCall(new CallOperator(primary, std::move(list)));
+  } else {
+    return primary;
+  }
 }
 
 std::vector<Expression *> Parser::parseCommaList(token_kind termination) {
@@ -309,32 +320,22 @@ Expression *Parser::parsePrimary() {
     primary = new IntegerExpr(std::atoi(tokitr->value.c_str()));
   } else if (consume(token_kind::of<"symbol">)) {
     auto name = tokitr->value;
-    auto symbol = new SymbolReferenceExpr(name);
-    if (consume(token_kind::of<"left_paren">)) {
-      auto list = parseCommaList(token_kind::of<"right_paren">);
-      expect(token_kind::of<"right_paren">);
-      primary = new CallOperator(symbol, std::move(list));
-    } else {
-      primary = symbol;
-    }
-    if (consume(token_kind::of<"left_square_bracket">)) {
-      Expression *index = parseExpression();
-      expect(token_kind::of<"right_square_bracket">);
-      primary = new IndexingOperator(primary, index);
-    }
+    primary = new SymbolReferenceExpr(name);
   } else if (consume(token_kind::of<"boolean_literal">)) {
     primary = new BooleanExpr(tokitr->value == "true" ? true : false);
   } else if (consume(token_kind::of<"left_square_bracket">)) {
-    primary = parseIndexing(parseArrayLiteral());
+    primary = parseArrayLiteral();
   } else if (consume(token_kind::of<"string_literal">)) {
     auto val = tokitr->value;
-    primary = parseIndexing(new StringExpr(val));
+    primary = new StringExpr(val);
   } else {
     std::string err =
         std::format("[unexpected token] expected primary expression but {}",
                     tokitr->kind.to_string());
     throw SyntaxError(err);
   }
+  primary = parseIndexing(primary);
+  primary = parseCall(primary);
   return primary;
 };
 

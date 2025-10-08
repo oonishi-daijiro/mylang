@@ -36,15 +36,15 @@ Type ArrayKind::Apply(const Type &t, size_t size) {
 
 // StringKind
 
-StringKind::StringKind(size_t s) : ArrayKind{Type::GetType("char"), s} {};
-Type StringKind::Apply(size_t size) {
-  auto arrayHeadPtrInst =
-      llvm::PointerType::get(Type::GetType("char").getTypeInst(), 0);
-  auto tyName = std::format("string");
-  auto tr = TypeTrait::New<StringTyTrait>();
-  auto k = Kind::New<StringKind>(size);
-  return {tyName, arrayHeadPtrInst, tr, k};
-};
+// StringKind::StringKind(size_t s) : ArrayKind{Type::GetType("char"), s} {};
+// Type StringKind::Apply(size_t size) {
+//   auto arrayHeadPtrInst =
+//       llvm::PointerType::get(Type::GetType("char").getTypeInst(), 0);
+//   auto tyName = std::format("string");
+//   auto tr = TypeTrait::New<StringTyTrait>();
+//   auto k = Kind::New<StringKind>(size);
+//   return {tyName, arrayHeadPtrInst, tr, k};
+// };
 
 // FunctionKind
 FunctionKind::FunctionKind(const FunctionSignature &sig, llvm::FunctionType *ty)

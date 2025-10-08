@@ -1,6 +1,7 @@
 #include "type.hpp"
 #include "errors.hpp"
 #include "kind.hpp"
+#include "utils.hpp"
 #include <functional>
 #include <stdexcept>
 

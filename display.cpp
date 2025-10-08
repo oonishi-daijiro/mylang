@@ -16,7 +16,7 @@ namespace Compiler {
 
 // function:
 std::string Function::to_string() {
-  return std::format("(function {}{})", name, sig.to_string());
+  return std::format("(function {}{})", name, signature.to_string());
 }
 
 // block  : enclose {}
@@ -52,7 +52,7 @@ std::string Operator::to_string() {
 }
 
 std::string FunctionArgument::to_string() {
-  return std::format("[Argument {} : {}]", name, type.name());
+  return std::format("[Parameter {} : {}]", name, type.name());
 };
 
 // statements : enclose <>

@@ -79,7 +79,7 @@ class Parser {
   // while      = "while" "(" expr ")" stmt
 
   // array_literal  = "[" expr ("," expr | ε)* "]"
-  // array_indexing = (array_literal | symbol) "[" expr "]"
+  // array_indexing = primary "[" expr "]"
 
   // expr       = equality
   // equality   = relational ("==" relational | "!=" relational)*
@@ -120,6 +120,7 @@ class Parser {
   Expression *parseArrayLiteral();
 
   Expression *parseIndexing(Expression *);
+  Expression *parseCall(Expression *);
   std::vector<Expression *> parseCommaList(token_kind);
 
 public:

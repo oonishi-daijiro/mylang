@@ -174,15 +174,11 @@ public:
   SymbolReferenceExpr(const std::string &name) : Symbol{name}, name{name} {}
 
   virtual std::string to_string() override;
-
   virtual llvm::Value *ptr() override;
-
   virtual void set(Value &val) override;
-
-  virtual llvm::Value *get() override { return referValue->get(); };
-
-  virtual const std::string kind() const override { return sym->kind(); };
-  virtual void resolveType() override { type = referValue->type; };
+  virtual llvm::Value *get() override;
+  virtual const std::string kind() const override;
+  virtual void resolveType() override;
   virtual void resolveSymbol() override;
 };
 

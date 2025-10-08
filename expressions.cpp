@@ -30,7 +30,9 @@ void IntegerExpr::resolveType() { type = "integer"; }
 
 // boolean expr
 BooleanExpr::BooleanExpr(bool b) : ConstantEval{b}, value{b} {};
+
 llvm::Value *BooleanExpr::get() { return llvm::ConstantInt::get(type, value); };
+
 void BooleanExpr::resolveType() { type = "boolean"; }
 
 // array expr
@@ -110,7 +112,7 @@ llvm::Value *StringExpr::get() {
   return strLiteralPointer;
 };
 
-void StringExpr::resolveType() { type = StringKind::Apply(value.size() + 1); };
+void StringExpr::resolveType() { type = "string"; };
 
 std::string StringExpr::value_str() { return std::format("\"{}\"", value); };
 
@@ -150,7 +152,6 @@ void SymbolReferenceExpr::resolveSymbol() {
     sym = currentScope().find(name);
     if (sym->isa<Variable, Function>()) {
       this->referValue = sym->cast<Value>();
-
     } else {
       throw SymbolError(info,
                         std::format("symbol {} does not refer to value", name));
@@ -201,5 +202,11 @@ void SymbolReferenceExpr::set(Value &val) {
   auto setter = std::visit(visitor, maybeSub);
   setter(val);
 }
+
+llvm::Value *SymbolReferenceExpr::get() { return referValue->get(); };
+const std::string SymbolReferenceExpr::kind() const { return sym->kind(); };
+void SymbolReferenceExpr::resolveType() {
+  type = referValue->type;
+};
 
 } // namespace Compiler

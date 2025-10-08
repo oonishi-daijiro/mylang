@@ -9,7 +9,9 @@
 #include "expressions.hpp"
 #include "kind.hpp"
 #include "operators.hpp"
+#include "type.hpp"
 #include "type_traits.hpp"
+#include "utils.hpp"
 
 namespace Compiler {
 Type BooleanOperator::resultType() { return Type::GetType("boolean"); }
@@ -25,10 +27,10 @@ std::string LeOperator::kind() { return "<="; }
 std::string GtOperator::kind() { return ">"; }
 std::string GeOperator::kind() { return ">="; }
 std::string MinusOperator::kind() { return "(-)"; }
-std::string IncrementOperator::kind() { return "(...)++"; }
-std::string DecrementOperator::kind() { return "(...)--"; }
+std::string IncrementOperator::kind() { return "()++"; }
+std::string DecrementOperator::kind() { return "()--"; }
 std::string kind() { return "[]"; }
-std::string CallOperator::kind() { return "func(...)"; };
+std::string CallOperator::kind() { return "(...)"; };
 // magma operator
 
 MagmaOperator::MagmaOperator(Expression *lv, Expression *rv)
@@ -134,9 +136,9 @@ IndexingOperator::IndexingOperator(Expression *arraylike, Expression *index)
     : Operator{{arraylike, index}}, index{*index}, arraylike{*arraylike} {}
 
 void IndexingOperator::set(Value &val) {
-  if (arraylike.type.kind()->isa<StringKind>()) {
-    throw TypeError(info, std::format("cannot set value to string literal"));
-  }
+  // if (arraylike.type.kind()->isa<StringKind>()) {
+  //   throw TypeError(info, std::format("cannot set value to string literal"));
+  // }
   auto ptr = this->ptr();
   builder->CreateStore(val.get(), ptr);
 };
@@ -150,7 +152,8 @@ llvm::Value *IndexingOperator::get() {
 
 llvm::Value *IndexingOperator::ptr() {
   auto indexable = arraylike.type.trait()->expect<Indexable>();
-  if (index.isa<ConstantEval<int32_t>>()) {
+  if (index.isa<ConstantEval<int32_t>>() &&
+      arraylike.type.kind()->isa<ArrayKind>()) {
     auto idx = index.cast<ConstantEval<int32_t>>()->val();
     auto arraysize = arraylike.type.kind()->cast<ArrayKind>()->size();
 
@@ -166,14 +169,19 @@ llvm::Value *IndexingOperator::ptr() {
 }
 
 void IndexingOperator::resolveType() {
-  auto unindexable = false;
-  unindexable |= !arraylike.type.kind()->isa<ArrayKind>();
+  auto indexable = false;
+  indexable |= arraylike.type.kind()->isa<ArrayKind>();
+  indexable |= arraylike.type == "string";
 
-  if (unindexable) {
-    throw TypeError(this->info, std::format("cannot index access to type :{}",
+  if (!indexable) {
+    throw TypeError(this->info, std::format("cannot index access to type : {}",
                                             arraylike.type.name()));
   } else {
-    type = arraylike.type.kind()->cast<ArrayKind>()->element();
+    if (arraylike.type == "string") {
+      type = "char";
+    } else {
+      type = arraylike.type.kind()->cast<ArrayKind>()->element();
+    }
   }
 }
 

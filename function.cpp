@@ -7,6 +7,7 @@
 #include "statement.hpp"
 #include "symbol.hpp"
 #include "type.hpp"
+#include "utils.hpp"
 #include "value.hpp"
 #include <format>
 #include <functional>
@@ -17,7 +18,7 @@ namespace Compiler {
 // FunctionSignature
 FunctionSignature::FunctionSignature(const std::vector<ArgumentInfo> &&argument,
                                      const std::optional<Type> &ret)
-    : ret{ret}, args{argument} {
+    : ret{ret}, args{std::forward<decltype(argument)>(argument)} {
   for (auto &&arg : args) {
     argTy.emplace_back(&arg.type());
   }
@@ -40,10 +41,13 @@ bool FunctionSignature::operator==(const FunctionSignature &signature) const {
 }
 
 const std::optional<Type> FunctionSignature::returnType() const { return ret; }
+
 void FunctionSignature::setInferedReturnType(const Type &t) { ret = t; }
+
 const decltype(FunctionSignature::args) &FunctionSignature::arguments() const {
   return args;
 }
+
 const std::vector<const Type *> &FunctionSignature::argType() const {
   return argTy;
 }
@@ -55,12 +59,25 @@ const std::string FunctionSignature::to_string() const {
   for (int i = 0; i < args.size(); i++) {
     auto &&name = args[i].name();
     auto &&type = args[i].type();
-    ss << std::format("{}:{}", name, type.name())
-       << ((i != args.size() - 1) ? "," : "");
+    ss << std::format("{}: {}", name, type.name())
+       << ((i != args.size() - 1) ? ", " : "");
   }
-  ss << std::format(") -> {}", ret ? ret->name() : "void");
+  ss << std::format(") -> {}", ret ? ret->name() : "unknown");
   return ss.str();
 }
+
+FunctionSignature::FunctionSignature(FunctionSignature &&r) {
+  args = std::move(r.args);
+  argTy = std::move(r.argTy);
+  ret = std::move(r.ret);
+};
+
+FunctionSignature &FunctionSignature::operator=(FunctionSignature &&r) {
+  args = std::move(r.args);
+  argTy = std::move(r.argTy);
+  ret = std::move(r.ret);
+  return *this;
+};
 
 // FunctionArgument
 
@@ -96,10 +113,11 @@ void FunctionArgument::setArgSubstance(llvm::Value *sub) {
 
 // Function
 
-Function::Function(const std::string &name, const FunctionSignature &sig,
+Function::Function(const std::string &name, FunctionSignature &&sig,
                    Block *body)
-    : body{*body}, sig{sig}, name{name}, Symbol{name} {
-  for (auto &&info : sig.arguments()) {
+    : body{*body}, signature{std::forward<decltype(sig)>(sig)}, name{name},
+      Symbol{name} {
+  for (auto &&info : signature.arguments()) {
     auto arg = new FunctionArgument(info.name(), info.type());
     argments.emplace_back(arg);
     appendChild(arg);
@@ -132,16 +150,16 @@ Type Function::inferReturnType() {
 
 void Function::resolveType() {
   auto infered = inferReturnType();
-  if (sig.returnType() && (infered != sig.returnType().value())) {
-    throw TypeError(info,
-                    std::format("return type misssmatching {} vs {}",
-                                infered.name(), sig.returnType()->name()));
-  } else if (!sig.returnType()) {
-    sig.setInferedReturnType(infered);
+  if (signature.returnType() && (infered != signature.returnType().value())) {
+    throw TypeError(info, std::format("return type misssmatching {} vs {}",
+                                      infered.name(),
+                                      signature.returnType()->name()));
+  } else if (!signature.returnType()) {
+    signature.setInferedReturnType(infered);
   }
 
-  body.setReturnType(sig.returnType().value());
-  type = FunctionKind::Apply(sig);
+  body.setReturnType(signature.returnType().value());
+  type = FunctionKind::Apply(signature);
 }
 
 void Function::gen() {
@@ -168,21 +186,21 @@ void Function::resolveSymbol() {
 
 void Function::init() {
   std::vector<llvm::Type *> argtypes{};
-  for (auto &&t : sig.argType()) {
+  for (auto &&t : signature.argType()) {
     argtypes.emplace_back(t->getTypeInst());
   }
-  auto funcType =
-      llvm::FunctionType::get(sig.returnType()->getTypeInst(), argtypes, false);
+  auto funcType = llvm::FunctionType::get(signature.returnType()->getTypeInst(),
+                                          argtypes, false);
   func = llvm::Function::Create(funcType, llvm::Function::ExternalLinkage, name,
                                 *llvmModule);
   auto args = func->args();
   int i = 0;
   for (auto &&llArg : args) {
-    llArg.setName(sig.arguments()[i].name());
+    llArg.setName(signature.arguments()[i].name());
     i++;
   }
 
-  for (int i = 0; i < sig.arguments().size(); i++) {
+  for (int i = 0; i < signature.arguments().size(); i++) {
     argments[i]->setArgSubstance(func->getArg(i));
   }
 }
